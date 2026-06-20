@@ -1,0 +1,203 @@
+.cam-card {
+  background: var(--c-surface);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+  animation: slide-down 0.28s cubic-bezier(.4,0,.2,1);
+}
+
+@keyframes slide-down {
+  from { opacity: 0; transform: translateY(-12px); }
+  to   { opacity: 1; transform: translateY(0);     }
+}
+
+/* ---- Frame ---- */
+.cam-frame {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  background: #0C1E2A;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ---- Live video ---- */
+.cam-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.cam-video--ready {
+  opacity: 1;
+}
+
+/* ---- Camera loading ---- */
+.cam-loading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: #fff;
+  font-size: 14px;
+}
+
+/* ---- Camera error ---- */
+.cam-error-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 28px 20px;
+  text-align: center;
+}
+
+.cam-error-icon  { font-size: 40px; }
+.cam-error-title { font-size: 16px; font-weight: 600; color: #fff; }
+.cam-error-hint  { font-size: 12px; color: rgba(255,255,255,0.5); }
+
+.upload-label {
+  margin-top: 6px;
+  padding: 10px 22px;
+  background: var(--c-primary);
+  color: #fff;
+  border-radius: var(--r-full);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.upload-label:hover { background: var(--c-primary-dark); }
+
+/* ---- Shutter button ---- */
+.shutter-btn {
+  position: absolute;
+  bottom: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 64px;
+  height: 64px;
+  border-radius: var(--r-full);
+  background: rgba(255, 255, 255, 0.92);
+  border: 3px solid #fff;
+  box-shadow: 0 0 0 3px rgba(255,255,255,0.35);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.12s ease, opacity 0.12s ease;
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.shutter-btn:active { transform: translateX(-50%) scale(0.92); }
+
+.shutter-inner {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--r-full);
+  background: #fff;
+  border: 2px solid #DDD;
+}
+
+/* ---- Captured image ---- */
+.captured-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* ---- AI overlay ---- */
+.ai-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(12, 35, 64, 0.72);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  backdrop-filter: blur(3px);
+}
+
+.ai-overlay--dim {
+  background: rgba(12, 35, 64, 0.55);
+}
+
+.ai-overlay-text {
+  color: #fff;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.retry-btn {
+  padding: 12px 28px;
+  background: var(--c-primary);
+  color: #fff;
+  border: none;
+  border-radius: var(--r-full);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.retry-btn:hover { background: var(--c-primary-dark); }
+
+/* ---- Frame label ---- */
+.cam-frame-label {
+  font-size: 11px;
+  color: var(--c-text-muted);
+  padding: 8px 0 4px;
+  letter-spacing: 0.3px;
+}
+
+/* ---- Close button ---- */
+.close-cam-btn {
+  width: calc(100% - 32px);
+  margin: 4px 16px 14px;
+  padding: 11px;
+  background: var(--c-surface-alt);
+  border: 1.5px solid var(--c-border);
+  border-radius: var(--r-sm);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--c-text-p);
+  cursor: pointer;
+  transition: background 0.15s;
+  outline: none;
+}
+
+.close-cam-btn:hover { background: var(--c-primary-pale); color: var(--c-primary-dark); }
+
+/* ---- Shared spinner ---- */
+.spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid rgba(255,255,255,0.25);
+  border-top-color: #fff;
+  border-radius: var(--r-full);
+  animation: spin 0.75s linear infinite;
+}
+
+.spinner--lg {
+  width: 48px;
+  height: 48px;
+  border-width: 4px;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}

@@ -1,0 +1,68 @@
+.dashboard {
+  width: 100%;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: var(--c-bg);
+}
+
+/* ---- Full-width top bar ---- */
+.top-bar {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 13px 20px;
+  background: var(--c-surface);
+  box-shadow: 0 1px 6px rgba(56, 189, 248, 0.10);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.top-bar-logo {
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.top-bar-title {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--c-text-h);
+  letter-spacing: -0.2px;
+  flex-grow: 1; /* Để nút đăng xuất nằm bên phải */
+}
+
+.dashboard-inner {
+  width: 100%;
+  max-width: 430px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 0 16px 40px;
+}
+
+.dashboard-main {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.logout-button {
+  background: none;
+  border: none;
+  color: var(--c-primary-dark);
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 6px 10px;
+  border-radius: var(--r-sm);
+  transition: background 0.15s;
+}
+
+.logout-button:hover {
+  background: var(--c-primary-pale);
+}

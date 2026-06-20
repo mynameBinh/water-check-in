@@ -1,0 +1,123 @@
+.history-card {
+  background: var(--c-surface);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-card);
+  padding: 20px 20px 4px;
+  overflow: hidden;
+}
+
+/* ---- Header row ---- */
+.history-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.history-title {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 1.4px;
+  color: var(--c-text-muted);
+}
+
+.history-count {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--c-primary-dark);
+  background: var(--c-primary-pale);
+  padding: 3px 10px;
+  border-radius: var(--r-full);
+}
+
+/* ---- Empty state ---- */
+.history-empty {
+  padding: 28px 0 24px;
+  text-align: center;
+  color: var(--c-text-muted);
+  font-size: 14px;
+  line-height: 2;
+}
+
+.history-empty-sub {
+  font-size: 12px;
+}
+
+/* ---- List ---- */
+.history-list {
+  list-style: none;
+  max-height: 280px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--c-primary-dim) transparent;
+  margin: 0 -20px;
+  padding: 0 20px 16px;
+}
+
+.history-list::-webkit-scrollbar       { width: 4px; }
+.history-list::-webkit-scrollbar-track { background: transparent; }
+.history-list::-webkit-scrollbar-thumb { background: var(--c-primary-dim); border-radius: 4px; }
+
+/* ---- List item ---- */
+.history-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 0;
+  border-bottom: 1px solid var(--c-border);
+}
+
+.history-item:last-child { border-bottom: none; }
+
+.history-item-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--r-sm);
+  background: var(--c-primary-pale);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.history-item-info { flex: 1; }
+
+.history-item-time {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--c-text-h);
+}
+
+/* ---- Right side ---- */
+.history-item-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.history-item-vol {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--c-primary-dark);
+}
+
+.history-item-badge {
+  width: 22px;
+  height: 22px;
+  border-radius: var(--r-full);
+  font-size: 12px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.history-item-badge--success {
+  background: var(--c-success-bg);
+  color: var(--c-success-dark);
+}
+
+.history-item-badge--error {
+  background: var(--c-error-bg);
+  color: var(--c-error-dark);
+}
