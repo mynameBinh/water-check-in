@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import './AuthPage.css';
 
-const API_BASE = fetch('https://water-check-in.onrender.com/api/checkin');
+const API_BASE = 'https://water-check-in.onrender.com/api/checkin';
 
 export default function AuthPage({ onLogin }) {
   const [isLogin, setIsLogin]       = useState(true);
