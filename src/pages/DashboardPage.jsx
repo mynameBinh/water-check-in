@@ -11,6 +11,18 @@ const API_BASE = 'https://eager-kings-wave.loca.lt';
 const GOAL_ML = 1800;
 const CHECKIN_ML = 250;
 
+// 👇 HÀM CHUYỂN ĐỔI ẢNH (Trị dứt điểm lỗi String did not match trên điện thoại)
+const dataURItoBlob = (dataURI) => {
+  const byteString = atob(dataURI.split(',')[1]);
+  const mimeString = dataURI.split(',')[0].split(':')[1].split(';')[0];
+  const ab = new ArrayBuffer(byteString.length);
+  const ia = new Uint8Array(ab);
+  for (let i = 0; i < byteString.length; i++) {
+    ia[i] = byteString.charCodeAt(i);
+  }
+  return new Blob([ab], { type: mimeString });
+};
+
 export default function DashboardPage({ token, onLogout }) {
   const [currentWater, setCurrentWater]   = useState(0);
   const [isCameraActive, setIsCameraActive] = useState(false);
@@ -31,10 +43,13 @@ export default function DashboardPage({ token, onLogout }) {
     const fetchHistory = async () => {
       try {
         const res = await fetch(`${API_BASE}/api/history`, {
-          headers: { 'Authorization': `Bearer ${token}` },
+          headers: { 
+            'Authorization': `Bearer ${token}`,
+            'bypass-tunnel-reminder': 'true' // 👇 BÙA XUYÊN TƯỜNG CHO LỊCH SỬ
+          },
         });
         if (!res.ok) {
-          if (res.status === 401) onLogout(); // Token expired or invalid
+          if (res.status === 401) onLogout(); 
           throw new Error('Không lấy được lịch sử.');
         }
         const data = await res.json();
@@ -44,9 +59,8 @@ export default function DashboardPage({ token, onLogout }) {
             hour: '2-digit', minute: '2-digit', hour12: true,
           }),
           volume: item.volume_ml,
-          status: 'success', // Backend doesn't store status, assume success for history
+          status: 'success', 
         })));
-        // Calculate currentWater from history
         const totalWater = data.reduce((sum, item) => sum + item.volume_ml, 0);
         setCurrentWater(totalWater);
       } catch (err) {
@@ -68,20 +82,25 @@ export default function DashboardPage({ token, onLogout }) {
     setAiStatus('loading');
 
     try {
-      const blob = await (await fetch(imageDataUrl)).blob();
+      // 👇 DÙNG HÀM MỚI THAY VÌ FETCH ĐỂ KHÔNG BỊ NGỘP CHUỖI TRÊN MOBILE
+      const blob = dataURItoBlob(imageDataUrl);
+      
       const formData = new FormData();
       formData.append('image', blob, 'checkin.jpeg');
 
       const res = await fetch(`${API_BASE}/api/checkin`, {
         method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` },
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'bypass-tunnel-reminder': 'true' // 👇 BÙA XUYÊN TƯỜNG CHO AI CHECK-IN
+        },
         body: formData,
       });
       const data = await res.json();
 
       if (!res.ok) {
-        if (res.status === 401) onLogout(); // Token expired or invalid
-        throw new Error(data.detail.message || 'Check-in thất bại.');
+        if (res.status === 401) onLogout(); 
+        throw new Error(data.detail?.message || data.detail || 'Check-in thất bại.');
       }
 
       setCurrentWater(prev => Math.min(prev + CHECKIN_ML, GOAL_ML));
