@@ -46,7 +46,7 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24
 CHECKIN_VOLUME_ML = 250
 
 # Dùng Haiku cho tác vụ phân tích ảnh Yes/No để tốc độ phản hồi nhanh nhất
-CLAUDE_MODEL      = "claude-3-haiku-20240307" 
+CLAUDE_MODEL = "claude-haiku-4-5"
 VISION_PROMPT     = (
     "Look at this image. Is there a glass of water, a water bottle, "
     "or someone drinking water in it? Reply ONLY with the word 'YES' or 'NO'."
