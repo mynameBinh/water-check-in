@@ -1,10 +1,11 @@
 # =============================================================================
-# Water Drinking Check-in API  v5.0 (Bản Production - Hỗ trợ Postgres & SQLite)
-# Stack: FastAPI · SQLAlchemy · JWT · Google GenAI SDK (gemini-2.5-flash)
+# Water Drinking Check-in API  v5.1 (Bản Production - Đã lên đời Claude 3 API)
+# Stack: FastAPI · SQLAlchemy · JWT · Anthropic Claude SDK
 # =============================================================================
 
 import io
 import os
+import base64
 from datetime import datetime, timedelta, timezone
 from typing import Annotated, Optional
 
@@ -18,7 +19,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, create_engine
 from sqlalchemy.orm import DeclarativeBase, Session, relationship, sessionmaker
 
-from google import genai
+import anthropic
 
 # Tự động nạp file .env nếu chạy ở máy cá nhân (Local)
 if os.path.exists(".env"):
@@ -29,8 +30,7 @@ if os.path.exists(".env"):
 # 1. Configuration (Lấy từ biến môi trường của Server)
 # =============================================================================
 
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-os.environ["GEMINI_API_KEY"] = GEMINI_API_KEY
+ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
 
 # Mặc định dùng SQLite nếu không cấu hình DATABASE_URL
 DATABASE_URL   = os.getenv("DATABASE_URL")
@@ -44,7 +44,9 @@ JWT_ALGORITHM               = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24
 
 CHECKIN_VOLUME_ML = 250
-GEMINI_MODEL      = "gemini-2.5-flash"
+
+# Dùng Haiku cho tác vụ phân tích ảnh Yes/No để tốc độ phản hồi nhanh nhất
+CLAUDE_MODEL      = "claude-3-haiku-20240307" 
 VISION_PROMPT     = (
     "Look at this image. Is there a glass of water, a water bottle, "
     "or someone drinking water in it? Reply ONLY with the word 'YES' or 'NO'."
@@ -134,7 +136,7 @@ DbDep          = Annotated[Session, Depends(get_db)]
 CurrentUserDep = Annotated[User,    Depends(get_current_user)]
 
 # =============================================================================
-# 5. Schemas & 6. App & 7. Routes (Giữ nguyên logic của sếp)
+# 5. Schemas & 6. App & 7. Routes
 # =============================================================================
 
 class UserCreateSchema(BaseModel):
@@ -154,12 +156,12 @@ class HistoryItemSchema(BaseModel):
     id: int; timestamp: datetime; volume_ml: int
     model_config = ConfigDict(from_attributes=True)
 
-app = FastAPI(title="Water Check-in API", version="5.0.0")
+app = FastAPI(title="Water Check-in API", version="5.1.0")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
 @app.get("/", tags=["Health"])
 async def health_check():
-    return {"status": "ok", "message": "Water Check-in API is running!"}
+    return {"status": "ok", "message": "Water Check-in API is running with Claude!"}
 
 @app.post("/api/register", response_model=RegisterResponseSchema, status_code=201, tags=["Auth"])
 async def register(body: UserCreateSchema, db: DbDep):
@@ -182,17 +184,50 @@ async def login(form: Annotated[OAuth2PasswordRequestForm, Depends()], db: DbDep
 async def create_checkin(current_user: CurrentUserDep, db: DbDep, image: UploadFile = File(...)):
     if not image.content_type or not image.content_type.startswith("image/"):
         raise HTTPException(status_code=422, detail="File phải là ảnh (jpg, png, …).")
+    
+    # Claude yêu cầu media_type cụ thể, ta cần mapping cho chuẩn
+    media_type = image.content_type
+    if media_type not in ["image/jpeg", "image/png", "image/gif", "image/webp"]:
+        media_type = "image/jpeg" # Fallback an toàn
+        
     raw_bytes = await image.read()
-    pil_image = Image.open(io.BytesIO(raw_bytes))
+    
+    # Mã hóa ảnh sang dạng Base64 để nhét vào payload cho Claude
+    base64_image = base64.b64encode(raw_bytes).decode("utf-8")
+
     try:
-        client = genai.Client()
-        response = client.models.generate_content(model=GEMINI_MODEL, contents=[VISION_PROMPT, pil_image])
-        ai_answer = response.text.strip().upper()
+        client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+        response = client.messages.create(
+            model=CLAUDE_MODEL,
+            max_tokens=10, # Chỉ cần trả lời YES/NO nên giới hạn cho tiết kiệm
+            messages=[
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "image",
+                            "source": {
+                                "type": "base64",
+                                "media_type": media_type,
+                                "data": base64_image,
+                            },
+                        },
+                        {
+                            "type": "text",
+                            "text": VISION_PROMPT
+                        }
+                    ],
+                }
+            ],
+        )
+        # Bóc tách câu trả lời của Claude
+        ai_answer = response.content[0].text.strip().upper()
+        
     except Exception as exc:
-        raise HTTPException(status_code=503, detail=f"Gemini API lỗi: {exc}")
+        raise HTTPException(status_code=503, detail=f"Claude API lỗi: {exc}")
 
     if "YES" not in ai_answer:
-        raise HTTPException(status_code=400, detail={"success": False, "message": "Không nhận diện được nước. Vui lòng chụp lại!"})
+        raise HTTPException(status_code=400, detail={"success": False, "message": "Claude không thấy nước. Vui lòng chụp lại!"})
 
     now = datetime.now(timezone.utc)
     checkin = Checkin(user_id=current_user.id, volume_ml=CHECKIN_VOLUME_ML, timestamp=now)
