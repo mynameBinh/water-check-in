@@ -17,11 +17,14 @@ export default function AuthPage({ onLogin }) {
     setLoading(true);
     resetMessages();
     try {
-      const res = await fetch(`${API_BASE}/api/register`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password }),
-      });
+      const res = await fetch(`${API_BASE}/api/login`, {
+      method: 'POST',
+      headers: { 
+     'Content-Type': 'application/x-www-form-urlencoded',
+     'bypass-tunnel-reminder': 'true' // Bắt buộc phải có dòng này
+    },
+  body: formBody.toString(),
+});
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || 'Đăng ký thất bại');
       setSuccess('Đăng ký thành công! Hãy đăng nhập.');
