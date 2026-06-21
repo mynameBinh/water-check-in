@@ -7,8 +7,8 @@ import FeedbackToastComponent from '../components/FeedbackToastComponent';
 import HistoryComponent from '../components/HistoryComponent';
 import './DashboardPage.css';
 
-const API_BASE = 'http://localhost:8000';
-const GOAL_ML = 2000;
+const API_BASE = 'https://eager-kings-wave.loca.lt';
+const GOAL_ML = 1800;
 const CHECKIN_ML = 250;
 
 export default function DashboardPage({ token, onLogout }) {
