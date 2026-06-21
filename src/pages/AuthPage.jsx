@@ -17,14 +17,16 @@ export default function AuthPage({ onLogin }) {
     setLoading(true);
     resetMessages();
     try {
-      const res = await fetch(`${API_BASE}/api/login`, {
-      method: 'POST',
-      headers: { 
-     'Content-Type': 'application/x-www-form-urlencoded',
-     'bypass-tunnel-reminder': 'true' // Bắt buộc phải có dòng này
-    },
-  body: formBody.toString(),
-});
+      // Đăng ký thì thường Backend sẽ nhận dạng JSON
+      const res = await fetch(`${API_BASE}/api/register`, { // Đổi thành /register
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'bypass-tunnel-reminder': 'true' // Bùa xuyên tường
+        },
+        body: JSON.stringify({ username, password }), // Gửi dạng JSON
+      });
+      
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || 'Đăng ký thất bại');
       setSuccess('Đăng ký thành công! Hãy đăng nhập.');
@@ -41,12 +43,18 @@ export default function AuthPage({ onLogin }) {
     setLoading(true);
     resetMessages();
     try {
+      // Đăng nhập của FastAPI OAuth2 bắt buộc dùng URLSearchParams
       const formBody = new URLSearchParams({ username, password });
-      const res = await fetch(`${API_BASE}/api/login`, {
+      
+      const res = await fetch(`${API_BASE}/api/login`, { // Chuẩn /login
         method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        headers: { 
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'bypass-tunnel-reminder': 'true' // Đã thêm bùa xuyên tường vào đây
+        },
         body: formBody.toString(),
       });
+      
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || 'Đăng nhập thất bại');
       localStorage.setItem('token', data.access_token);
