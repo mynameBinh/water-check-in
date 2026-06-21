@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import './AuthPage.css';
 
-const API_BASE = 'http://192.168.1.9:8000';
+const API_BASE = 'https://eager-kings-wave.loca.lt';
 
 export default function AuthPage({ onLogin }) {
   const [isLogin, setIsLogin]       = useState(true);
