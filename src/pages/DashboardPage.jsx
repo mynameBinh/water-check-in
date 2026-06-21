@@ -7,7 +7,7 @@ import FeedbackToastComponent from '../components/FeedbackToastComponent';
 import HistoryComponent from '../components/HistoryComponent';
 import './DashboardPage.css';
 
-const API_BASE = 'https://lovely-vans-follow.loca.lt';
+const API_BASE = 'https://rotten-tires-strive.loca.lt';
 const GOAL_ML = 1800;
 const CHECKIN_ML = 250;
 

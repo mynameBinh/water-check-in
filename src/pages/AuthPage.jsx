@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import './AuthPage.css';
 
-const API_BASE = 'https://lovely-vans-follow.loca.lt';
+const API_BASE = 'https://rotten-tires-strive.loca.lt';
 
 export default function AuthPage({ onLogin }) {
   const [isLogin, setIsLogin]       = useState(true);
