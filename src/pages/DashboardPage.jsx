@@ -8,7 +8,7 @@ import HistoryComponent from '../components/HistoryComponent';
 import './DashboardPage.css';
 
 const API_BASE = 'https://binhhn21-water-check-in-backend.hf.space';
-const GOAL_ML = 1800;
+const GOAL_ML = 1500;
 const CHECKIN_ML = 250;
 
 // 👇 HÀM CHUYỂN ĐỔI ẢNH (Trị dứt điểm lỗi String did not match trên điện thoại)
