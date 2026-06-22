@@ -215,7 +215,7 @@ async def create_checkin(current_user: CurrentUserDep, db: DbDep, image: UploadF
         raise HTTPException(status_code=503, detail=f"Claude API lỗi: {exc}")
 
     if "YES" not in ai_answer:
-        raise HTTPException(status_code=400, detail={"success": False, "message": "Claude không thấy nước. Vui lòng chụp lại!"})
+        raise HTTPException(status_code=400, detail={"success": False, "message": "Không thấy nước. Vui lòng check-in lại!"})
 
     now = datetime.now(timezone.utc)
     
@@ -390,3 +390,18 @@ async def admin_get_checkins_by_date(
         "total_checkins": len(result),
         "data": result
     }
+
+
+#xoa dữ liệu database
+from sqlalchemy import delete
+
+@app.delete("/api/reset-history", tags=["Admin"])
+async def reset_database(db: DbDep):
+    try:
+        # Lệnh càn quét: Xóa sạch toàn bộ dữ liệu trong bảng Checkin
+        db.query(Checkin).delete()
+        db.commit()
+        return {"message": "Đã dọn dẹp sạch sẽ toàn bộ lịch sử uống nước!"}
+    except Exception as e:
+        db.rollback()
+        return {"error": f"Lỗi khi xóa: {str(e)}"}
