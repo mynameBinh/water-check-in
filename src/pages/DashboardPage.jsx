@@ -76,14 +76,20 @@ export default function DashboardPage({ token, onLogout }) {
         }
         
         const data = await res.json();
-        setHistory(data.map(item => ({
-          id: item.id,
-          time: new Date(item.timestamp).toLocaleTimeString('vi-VN', {
-            hour: '2-digit', minute: '2-digit', hour12: true,
-          }),
-          volume: item.volume_ml,
-          status: 'success', 
-        })));
+        setHistory(data.map(item => {
+          const fixedTimestamp = item.timestamp.endsWith('Z') 
+            ? item.timestamp 
+            : `${item.timestamp}Z`;
+
+          return {
+            id: item.id,
+            time: new Date(fixedTimestamp).toLocaleTimeString('vi-VN', {
+              hour: '2-digit', minute: '2-digit', hour12: true,
+            }),
+            volume: item.volume_ml,
+            status: 'success', 
+          };
+        }));
         const totalWater = data.reduce((sum, item) => sum + item.volume_ml, 0);
         setCurrentWater(totalWater);
         
@@ -113,13 +119,11 @@ export default function DashboardPage({ token, onLogout }) {
     setAiStatus('loading');
 
     try {
-      // 👇 DÙNG HÀM MỚI THAY VÌ FETCH ĐỂ KHÔNG BỊ NGỘP CHUỖI TRÊN MOBILE
       const blob = dataURItoBlob(imageDataUrl);
       
       const formData = new FormData();
       formData.append('image', blob, 'checkin.jpeg');
 
-      // ... (Phần trên giữ nguyên)
       const res = await fetch(`${API_BASE}/api/checkin`, {
         method: 'POST',
         headers: { 
@@ -130,29 +134,49 @@ export default function DashboardPage({ token, onLogout }) {
       });
 
       if (!res.ok) {
-        // Kiểm tra mã 401 (Hết hạn đăng nhập)
         if (res.status === 401 || res.status === 403) {
           onLogout();
           return;
         }
-        const data = await res.json();
-        throw new Error(data.detail?.message || data.detail || 'Check-in thất bại.');
+        const errData = await res.json();
+        throw new Error(errData.detail?.message || errData.detail || 'Check-in thất bại.');
       }
 
-      // ... (Phần cập nhật UI thành công giữ nguyên)
+      // Đọc dữ liệu thành công từ Backend
+      const data = await res.json();
+
+      // 👇 ĐÂY CHÍNH LÀ ĐOẠN BỊ XÓA NHẦM (Cập nhật UI sau khi thành công)
+      setCurrentWater(prev => Math.min(prev + CHECKIN_ML, GOAL_ML));
+      
+      setHistory(prev => [{
+        id: Date.now(),
+        time: new Date().toLocaleTimeString('vi-VN', {
+          hour: '2-digit', minute: '2-digit', hour12: true,
+        }),
+        volume: CHECKIN_ML,
+        status: 'success',
+      }, ...prev]);
+      
+      setAiStatus('success');
+      setToast({ type: 'success', message: data.message || 'Check-in thành công!' });
+      
+      // Cho user nhìn chữ "Thành công" khoảng 1.5 giây rồi mới tự động đóng Camera
+      setTimeout(() => {
+        setIsCameraActive(false);
+        setCapturedImage(null);
+        setAiStatus('idle');
+      }, 1500);
 
     } catch (err) {
       setAiStatus('error');
       console.error("Lỗi kết nối Check-in: ", err);
       
-      // 👇 TỰ ĐỘNG ĐÁ VĂNG NẾU GẶP LỖI MẠNG (Failed to fetch)
       if (err.message.includes('Failed to fetch') || err.message.includes('NetworkError')) {
         setToast({ type: 'error', message: 'Máy chủ đang bảo trì! Đang văng ra...' });
         setTimeout(() => {
           onLogout();
         }, 1500);
       } else {
-        // Chỉ hiện lỗi bình thường nếu là lỗi do AI soi ra (không văng)
         setToast({ type: 'error', message: err.message || 'Lỗi khi check-in.' });
       }
     }
