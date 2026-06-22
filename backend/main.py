@@ -1,5 +1,5 @@
 # =============================================================================
-# Water Drinking Check-in API  v5.2 (Bản Production - Đã thêm Auto-Reset Ngày)
+# Water Drinking Check-in API  v5.3 (Bản Production - Đã thêm Lưu Ảnh Hậu Kiểm)
 # Stack: FastAPI · SQLAlchemy · JWT · Anthropic Claude SDK
 # =============================================================================
 
@@ -12,6 +12,7 @@ from typing import Annotated, Optional
 from fastapi import Depends, FastAPI, File, HTTPException, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from fastapi.staticfiles import StaticFiles  # 👇 THÊM ĐỂ PHỤC VỤ XEM ẢNH TRỰC TIẾP
 from jose import JWTError, jwt
 import bcrypt
 from PIL import Image
@@ -31,11 +32,8 @@ if os.path.exists(".env"):
 # =============================================================================
 
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
-
-# Mặc định dùng SQLite nếu không cấu hình DATABASE_URL
 DATABASE_URL   = os.getenv("DATABASE_URL")
 
-# Sửa lỗi tương thích: SQLAlchemy yêu cầu 'postgresql://' thay vì 'postgres://' của Neon/Supabase
 if DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
@@ -44,19 +42,19 @@ JWT_ALGORITHM               = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24
 
 CHECKIN_VOLUME_ML = 250
-
-# Dùng Haiku cho tác vụ phân tích ảnh Yes/No để tốc độ phản hồi nhanh nhất
 CLAUDE_MODEL = "claude-haiku-4-5"
 VISION_PROMPT     = (
-    "Look at this image. Is there a glass of water, a water bottle, "
+    "Look wristwatch this image. Is there a glass of water, a water bottle, "
     "or someone drinking water in it? Reply ONLY with the word 'YES' or 'NO'."
 )
+
+# Tự động tạo thư mục lưu ảnh nếu chưa có
+os.makedirs("uploads", exist_ok=True)
 
 # =============================================================================
 # 2. Database Configuration
 # =============================================================================
 
-# Nếu dùng SQLite thì cần tham số check_same_thread, Postgres thì không cần
 if DATABASE_URL.startswith("sqlite"):
     engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
 else:
@@ -80,6 +78,7 @@ class Checkin(Base):
     user_id   = Column(Integer, ForeignKey("users.id"), nullable=False)
     timestamp = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
     volume_ml = Column(Integer, default=CHECKIN_VOLUME_ML, nullable=False)
+    image_path = Column(String(255), nullable=True) # 👇 THÊM CỘT LƯU ĐƯỜNG DẪN ẢNH
     owner     = relationship("User", back_populates="checkins")
 
 Base.metadata.create_all(bind=engine)
@@ -150,14 +149,17 @@ class TokenSchema(BaseModel):
     access_token: str; token_type: str
 
 class CheckinResponseSchema(BaseModel):
-    success: bool; message: str; volume_ml: Optional[int] = None; timestamp: Optional[str] = None
+    success: bool; message: str; volume_ml: Optional[int] = None; timestamp: Optional[str] = None; image_url: Optional[str] = None
 
 class HistoryItemSchema(BaseModel):
-    id: int; timestamp: datetime; volume_ml: int
+    id: int; timestamp: datetime; volume_ml: int; image_path: Optional[str] = None # 👇 TRẢ VỀ ĐƯỜNG DẪN ẢNH ĐỂ XEM
     model_config = ConfigDict(from_attributes=True)
 
-app = FastAPI(title="Water Check-in API", version="5.2.0")
+app = FastAPI(title="Water Check-in API", version="5.3.0")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+
+# 👇 PHÁT HÀNH THƯ MỤC ẢNH: Giúp sếp có thể truy cập ảnh qua URL trực tiếp từ trình duyệt
+app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 @app.get("/", tags=["Health"])
 async def health_check():
@@ -198,23 +200,10 @@ async def create_checkin(current_user: CurrentUserDep, db: DbDep, image: UploadF
             model=CLAUDE_MODEL,
             max_tokens=10,
             messages=[
-                {
-                    "role": "user",
-                    "content": [
-                        {
-                            "type": "image",
-                            "source": {
-                                "type": "base64",
-                                "media_type": media_type,
-                                "data": base64_image,
-                            },
-                        },
-                        {
-                            "type": "text",
-                            "text": VISION_PROMPT
-                        }
-                    ],
-                }
+                {"role": "user", "content": [
+                    {"type": "image", "source": {"type": "base64", "media_type": media_type, "data": base64_image}},
+                    {"type": "text", "text": VISION_PROMPT}
+                ]}
             ],
         )
         ai_answer = response.content[0].text.strip().upper()
@@ -226,42 +215,45 @@ async def create_checkin(current_user: CurrentUserDep, db: DbDep, image: UploadF
         raise HTTPException(status_code=400, detail={"success": False, "message": "Claude không thấy nước. Vui lòng chụp lại!"})
 
     now = datetime.now(timezone.utc)
-    checkin = Checkin(user_id=current_user.id, volume_ml=CHECKIN_VOLUME_ML, timestamp=now)
+    
+    # 👇 THỰC HIỆN LƯU ẢNH: Tạo tên file độc bản theo ID user và mốc thời gian
+    filename = f"user_{current_user.id}_{int(now.timestamp())}.jpg"
+    filepath = os.path.join("uploads", filename)
+    with open(filepath, "wb") as f:
+        f.write(raw_bytes)
+    
+    # Lưu thông tin lưu trữ vào DB kèm cột image_path
+    relative_url = f"/uploads/{filename}"
+    checkin = Checkin(user_id=current_user.id, volume_ml=CHECKIN_VOLUME_ML, timestamp=now, image_path=relative_url)
     db.add(checkin)
     db.commit(); db.refresh(checkin)
-    return CheckinResponseSchema(success=True, message="Check-in thành công!", volume_ml=checkin.volume_ml, timestamp=now.strftime("%H:%M  %d/%m/%Y"))
+    
+    return CheckinResponseSchema(
+        success=True, message="Check-in thành công!", 
+        volume_ml=checkin.volume_ml, timestamp=now.strftime("%H:%M  %d/%m/%Y"),
+        image_url=relative_url
+    )
 
-# 👇 ĐÃ ĐƯỢC CẬP NHẬT: Tự động reset bằng cách chỉ lấy lịch sử của NGÀY HÔM NAY
 @app.get("/api/history", response_model=list[HistoryItemSchema], tags=["History"])
 async def get_history(current_user: CurrentUserDep, db: DbDep):
-    # Khóa cứng múi giờ Việt Nam (UTC+7)
     tz_vn = timezone(timedelta(hours=7))
-    
-    # Lấy thời điểm 00:00:00 đầu ngày hôm nay theo giờ VN
     today_start = datetime.now(tz_vn).replace(hour=0, minute=0, second=0, microsecond=0)
-    
-    # Lấy thời điểm 00:00:00 đầu ngày hôm sau
     today_end = today_start + timedelta(days=1)
 
-    # Thực hiện lọc trong DB: Chỉ lấy các bản ghi nằm trong ngày hôm nay
     return db.query(Checkin).filter(
         Checkin.user_id == current_user.id,
         Checkin.timestamp >= today_start,
         Checkin.timestamp < today_end
     ).order_by(Checkin.timestamp.desc()).all()
 
-#giu chuoi
-# 👇 THÊM ENDPOINT NÀY VÀO CUỐI FILE MAIN.PY
 @app.get("/api/streak", tags=["Stats"])
 async def get_streak(current_user: CurrentUserDep, db: DbDep):
-    # Cấu hình mục tiêu uống nước của sếp (Sếp sửa số 2000 này cho khớp với mục tiêu nhé)
     DAILY_GOAL = 2000 
-    TARGET_90_PERCENT = DAILY_GOAL * 0.9  # Mốc 90% = 1800ml
+    TARGET_90_PERCENT = DAILY_GOAL * 0.9
     
-    tz_vn = timezone(timedelta(hours=7)) # Múi giờ Việt Nam
+    tz_vn = timezone(timedelta(hours=7))
     all_checkins = db.query(Checkin).filter(Checkin.user_id == current_user.id).all()
     
-    # Gom nhóm tổng lượng nước theo từng ngày (Giờ Việt Nam)
     daily_volumes = {}
     for c in all_checkins:
         vn_date = c.timestamp.astimezone(tz_vn).date()
@@ -271,19 +263,14 @@ async def get_streak(current_user: CurrentUserDep, db: DbDep):
     streak = 0
     current_date = today
     
-    # Thuật toán quét ngược thời gian để tính chuỗi liên tục
     while True:
         vol = daily_volumes.get(current_date, 0)
-        
         if vol >= TARGET_90_PERCENT:
             streak += 1
-            current_date -= timedelta(days=1) # Còn đủ điều kiện thì lùi tiếp về hôm qua
+            current_date -= timedelta(days=1)
         elif current_date == today:
-            # Nếu hôm nay chưa uống đủ 90% thì tạm thời chưa phạt đứt chuỗi,
-            # Nhảy về hôm qua để kiểm tra xem chuỗi cũ có đang được giữ không
             current_date -= timedelta(days=1)
         else:
-            # Đụng phải một ngày trong quá khứ bị hụt chỉ tiêu -> Đứt chuỗi!
             break
             
     return {"streak": streak}
