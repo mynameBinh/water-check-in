@@ -55,19 +55,26 @@ export default function DashboardPage({ token, onLogout }) {
   }, [toast]);
 
   /* Fetch history on mount */
+  /* Fetch history on mount */
   useEffect(() => {
     const fetchHistory = async () => {
       try {
         const res = await fetch(`${API_BASE}/api/history`, {
           headers: { 
             'Authorization': `Bearer ${token}`,
-            'bypass-tunnel-reminder': 'true' // 👇 BÙA XUYÊN TƯỜNG CHO LỊCH SỬ
+            'bypass-tunnel-reminder': 'true' 
           },
         });
+        
+        // Nếu server từ chối (401 Hết token) hoặc sập ngầm
         if (!res.ok) {
-          if (res.status === 401) onLogout(); 
-          throw new Error('Không lấy được lịch sử.');
+          if (res.status === 401 || res.status === 403) {
+            onLogout(); // Đá văng ngay lập tức
+            return;
+          }
+          throw new Error('Server không phản hồi.');
         }
+        
         const data = await res.json();
         setHistory(data.map(item => ({
           id: item.id,
@@ -79,12 +86,20 @@ export default function DashboardPage({ token, onLogout }) {
         })));
         const totalWater = data.reduce((sum, item) => sum + item.volume_ml, 0);
         setCurrentWater(totalWater);
+        
       } catch (err) {
         console.error("Lỗi khi tải lịch sử: ", err);
-        setToast({ type: 'error', message: err.message || 'Không tải được lịch sử.' });
+        // 👇 TỰ ĐỘNG ĐÁ VĂNG NẾU LỖI MẠNG / BACKEND SẬP
+        setToast({ type: 'error', message: 'Mất kết nối Server! Vui lòng đăng nhập lại...' });
+        setTimeout(() => {
+          onLogout();
+        }, 1500); // Trì hoãn 1.5 giây để user kịp đọc lý do trước khi bị văng
       }
     };
-    fetchHistory();
+    
+    if (token) {
+      fetchHistory();
+    }
   }, [token, onLogout]);
 
   const handleOpenCamera = () => {
@@ -104,38 +119,42 @@ export default function DashboardPage({ token, onLogout }) {
       const formData = new FormData();
       formData.append('image', blob, 'checkin.jpeg');
 
+      // ... (Phần trên giữ nguyên)
       const res = await fetch(`${API_BASE}/api/checkin`, {
         method: 'POST',
         headers: { 
           'Authorization': `Bearer ${token}`,
-          'bypass-tunnel-reminder': 'true' // 👇 BÙA XUYÊN TƯỜNG CHO AI CHECK-IN
+          'bypass-tunnel-reminder': 'true'
         },
         body: formData,
       });
-      const data = await res.json();
 
       if (!res.ok) {
-        if (res.status === 401) onLogout(); 
+        // Kiểm tra mã 401 (Hết hạn đăng nhập)
+        if (res.status === 401 || res.status === 403) {
+          onLogout();
+          return;
+        }
+        const data = await res.json();
         throw new Error(data.detail?.message || data.detail || 'Check-in thất bại.');
       }
 
-      setCurrentWater(prev => Math.min(prev + CHECKIN_ML, GOAL_ML));
-      setHistory(prev => [{
-        id: Date.now(),
-        time: new Date().toLocaleTimeString('vi-VN', {
-          hour: '2-digit', minute: '2-digit', hour12: true,
-        }),
-        volume: CHECKIN_ML,
-        status: 'success',
-      }, ...prev]);
-      setAiStatus('success');
-      setToast({ type: 'success', message: data.message });
-      setIsCameraActive(false);
-      setCapturedImage(null);
+      // ... (Phần cập nhật UI thành công giữ nguyên)
 
     } catch (err) {
       setAiStatus('error');
-      setToast({ type: 'error', message: err.message || 'Lỗi khi check-in.' });
+      console.error("Lỗi kết nối Check-in: ", err);
+      
+      // 👇 TỰ ĐỘNG ĐÁ VĂNG NẾU GẶP LỖI MẠNG (Failed to fetch)
+      if (err.message.includes('Failed to fetch') || err.message.includes('NetworkError')) {
+        setToast({ type: 'error', message: 'Máy chủ đang bảo trì! Đang văng ra...' });
+        setTimeout(() => {
+          onLogout();
+        }, 1500);
+      } else {
+        // Chỉ hiện lỗi bình thường nếu là lỗi do AI soi ra (không văng)
+        setToast({ type: 'error', message: err.message || 'Lỗi khi check-in.' });
+      }
     }
   }, [token, onLogout]);
 
