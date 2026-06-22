@@ -19,6 +19,8 @@ from PIL import Image
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, create_engine
 from sqlalchemy.orm import DeclarativeBase, Session, relationship, sessionmaker
+import asyncio
+from datetime import timedelta, timezone
 
 import anthropic
 
@@ -274,3 +276,49 @@ async def get_streak(current_user: CurrentUserDep, db: DbDep):
             break
             
     return {"streak": streak}
+
+
+
+
+# 👇 THÊM ĐOẠN NÀY VÀO MAIN.PY ĐỂ BẬT TÍNH NĂNG TỰ ĐỘNG DỌN RÁC
+async def auto_cleanup_old_images():
+    while True:
+        try:
+            db = SessionLocal()
+            # Mốc thời gian: Đúng 7 ngày trước
+            seven_days_ago = datetime.now(timezone.utc) - timedelta(days=7)
+            
+            # Quét DB tìm các check-in cũ hơn 7 ngày và vẫn còn lưu ảnh
+            old_checkins = db.query(Checkin).filter(
+                Checkin.timestamp < seven_days_ago, 
+                Checkin.image_path.isnot(None)
+            ).all()
+
+            for checkin in old_checkins:
+                if checkin.image_path:
+                    # Tách tên file ra khỏi đường dẫn (VD: /uploads/abc.jpg -> abc.jpg)
+                    filename = checkin.image_path.split("/")[-1]
+                    filepath = os.path.join("uploads", filename)
+                    
+                    # 1. Tiêu diệt file vật lý khỏi ổ cứng để lấy lại dung lượng
+                    if os.path.exists(filepath):
+                        os.remove(filepath)
+                
+                # 2. Xóa link ảnh trong DB để giao diện không bị lỗi hiển thị "vỡ ảnh"
+                checkin.image_path = None
+            
+            if old_checkins:
+                db.commit()
+                print(f"🧹 Đã tự động tiêu hủy {len(old_checkins)} ảnh cũ từ 7 ngày trước!")
+                
+            db.close()
+        except Exception as e:
+            print(f"❌ Lỗi khi dọn rác: {e}")
+        
+        # Cho bot ngủ đông 24 tiếng (86400 giây) rồi mới thức dậy đi dọn dẹp tiếp
+        await asyncio.sleep(86400)
+
+@app.on_event("startup")
+async def start_background_tasks():
+    # Kích hoạt con bot dọn rác chạy ngầm ngay khi sếp khởi động server
+    asyncio.create_task(auto_cleanup_old_images())

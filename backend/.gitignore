@@ -9,3 +9,8 @@ water_tracker.db
 venv/
 __pycache__/
 .pytest_cache/
+
+# Bỏ qua tất cả file ảnh trong uploads
+uploads/*
+# NHƯNG giữ lại vỏ thư mục bằng file .gitkeep
+!uploads/.gitkeep
