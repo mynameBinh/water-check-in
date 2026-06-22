@@ -322,3 +322,64 @@ async def auto_cleanup_old_images():
 async def start_background_tasks():
     # Kích hoạt con bot dọn rác chạy ngầm ngay khi sếp khởi động server
     asyncio.create_task(auto_cleanup_old_images())
+
+    # =============================================================================
+# ⚙️ ADMIN API - Dành riêng cho sếp quản lý và hậu kiểm
+# =============================================================================
+
+@app.get("/api/admin/checkins", tags=["Admin"])
+async def admin_get_checkins_by_date(
+    date_str: str,  # Định dạng: YYYY-MM-DD (Ví dụ: 2026-06-22)
+    db: DbDep
+):
+    """
+    API dành riêng cho Sếp để lọc danh sách check-in và xem ảnh theo ngày.
+    - Truy cập Swagger UI (/docs) để dùng trực tiếp.
+    - Nhập ngày theo định dạng: YYYY-MM-DD
+    """
+    try:
+        # Chuyển đổi chuỗi ngày sếp nhập thành object date trong Python
+        target_date = datetime.strptime(date_str, "%Y-%m-%d").date()
+    except ValueError:
+        raise HTTPException(
+            status_code=400, 
+            detail="Định dạng ngày không hợp lệ! Sếp vui lòng nhập theo dạng YYYY-MM-DD (Ví dụ: 2026-06-22)"
+        )
+
+    # Tính toán khoảng thời gian từ 00:00:00 đến 23:59:59 của ngày đó theo múi giờ Việt Nam (UTC+7)
+    tz_vn = timezone(timedelta(hours=7))
+    start_datetime = datetime.combine(target_date, datetime.min.time()).replace(tzinfo=tz_vn)
+    end_datetime = datetime.combine(target_date, datetime.max.time()).replace(tzinfo=tz_vn)
+
+    # Truy vấn dữ liệu từ Database
+    checkins = db.query(Checkin).filter(
+        Checkin.timestamp >= start_datetime,
+        Checkin.timestamp <= end_datetime
+    ).order_by(Checkin.timestamp.desc()).all()
+
+    # Tạo danh sách kết quả đẹp đẽ để sếp xem
+    result = []
+    for c in checkins:
+        # Lấy tên user để sếp biết ai chụp
+        username = c.owner.username if c.owner else "Ẩn danh"
+        
+        # Chuyển thời gian sang múi giờ VN cho sếp dễ nhìn
+        local_time = c.timestamp.astimezone(tz_vn).strftime("%H:%M:%S  %d/%m/%Y")
+        
+        # Tạo link ảnh đầy đủ (Sếp nhớ cấu hình nếu đổi domain localtunnel nhé)
+        # Trong môi trường Swagger, sếp chỉ cần bấm thẳng vào link này là ảnh tự bật lên tab mới
+        full_image_url = f"/uploads/{c.image_path.split('/')[-1]}" if c.image_path else "Không có ảnh"
+
+        result.append({
+            "checkin_id": c.id,
+            "username": username,
+            "volume_ml": c.volume_ml,
+            "time": local_time,
+            "image_link_click_here": full_image_url
+        })
+
+    return {
+        "date_selected": date_str,
+        "total_checkins": len(result),
+        "data": result
+    }
