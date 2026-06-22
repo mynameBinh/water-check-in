@@ -238,14 +238,20 @@ async def create_checkin(current_user: CurrentUserDep, db: DbDep, image: UploadF
 
 @app.get("/api/history", response_model=list[HistoryItemSchema], tags=["History"])
 async def get_history(current_user: CurrentUserDep, db: DbDep):
+    # 1. Tính mốc 0h00 của ngày hôm nay theo giờ Việt Nam
     tz_vn = timezone(timedelta(hours=7))
-    today_start = datetime.now(tz_vn).replace(hour=0, minute=0, second=0, microsecond=0)
-    today_end = today_start + timedelta(days=1)
+    today_start_vn = datetime.now(tz_vn).replace(hour=0, minute=0, second=0, microsecond=0)
+    today_end_vn = today_start_vn + timedelta(days=1)
 
+    # 2. CHÌA KHÓA: Đổi 2 mốc thời gian đó về giờ UTC để nói cùng "ngôn ngữ" với Database
+    today_start_utc = today_start_vn.astimezone(timezone.utc)
+    today_end_utc = today_end_vn.astimezone(timezone.utc)
+
+    # 3. Chọc xuống Database và lọc bằng mốc UTC
     return db.query(Checkin).filter(
         Checkin.user_id == current_user.id,
-        Checkin.timestamp >= today_start,
-        Checkin.timestamp < today_end
+        Checkin.timestamp >= today_start_utc,
+        Checkin.timestamp < today_end_utc
     ).order_by(Checkin.timestamp.desc()).all()
 
 @app.get("/api/streak", tags=["Stats"])
@@ -280,7 +286,7 @@ async def get_streak(current_user: CurrentUserDep, db: DbDep):
 
 
 
-# 👇 THÊM ĐOẠN NÀY VÀO MAIN.PY ĐỂ BẬT TÍNH NĂNG TỰ ĐỘNG DỌN RÁC
+# BẬT TÍNH NĂNG TỰ ĐỘNG DỌN RÁC
 async def auto_cleanup_old_images():
     while True:
         try:
