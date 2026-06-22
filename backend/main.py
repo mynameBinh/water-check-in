@@ -1,5 +1,5 @@
 # =============================================================================
-# Water Drinking Check-in API  v5.1 (Bản Production - Đã lên đời Claude 3 API)
+# Water Drinking Check-in API  v5.2 (Bản Production - Đã thêm Auto-Reset Ngày)
 # Stack: FastAPI · SQLAlchemy · JWT · Anthropic Claude SDK
 # =============================================================================
 
@@ -156,7 +156,7 @@ class HistoryItemSchema(BaseModel):
     id: int; timestamp: datetime; volume_ml: int
     model_config = ConfigDict(from_attributes=True)
 
-app = FastAPI(title="Water Check-in API", version="5.1.0")
+app = FastAPI(title="Water Check-in API", version="5.2.0")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
 @app.get("/", tags=["Health"])
@@ -185,21 +185,18 @@ async def create_checkin(current_user: CurrentUserDep, db: DbDep, image: UploadF
     if not image.content_type or not image.content_type.startswith("image/"):
         raise HTTPException(status_code=422, detail="File phải là ảnh (jpg, png, …).")
     
-    # Claude yêu cầu media_type cụ thể, ta cần mapping cho chuẩn
     media_type = image.content_type
     if media_type not in ["image/jpeg", "image/png", "image/gif", "image/webp"]:
-        media_type = "image/jpeg" # Fallback an toàn
+        media_type = "image/jpeg"
         
     raw_bytes = await image.read()
-    
-    # Mã hóa ảnh sang dạng Base64 để nhét vào payload cho Claude
     base64_image = base64.b64encode(raw_bytes).decode("utf-8")
 
     try:
         client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
         response = client.messages.create(
             model=CLAUDE_MODEL,
-            max_tokens=10, # Chỉ cần trả lời YES/NO nên giới hạn cho tiết kiệm
+            max_tokens=10,
             messages=[
                 {
                     "role": "user",
@@ -220,7 +217,6 @@ async def create_checkin(current_user: CurrentUserDep, db: DbDep, image: UploadF
                 }
             ],
         )
-        # Bóc tách câu trả lời của Claude
         ai_answer = response.content[0].text.strip().upper()
         
     except Exception as exc:
@@ -235,6 +231,59 @@ async def create_checkin(current_user: CurrentUserDep, db: DbDep, image: UploadF
     db.commit(); db.refresh(checkin)
     return CheckinResponseSchema(success=True, message="Check-in thành công!", volume_ml=checkin.volume_ml, timestamp=now.strftime("%H:%M  %d/%m/%Y"))
 
+# 👇 ĐÃ ĐƯỢC CẬP NHẬT: Tự động reset bằng cách chỉ lấy lịch sử của NGÀY HÔM NAY
 @app.get("/api/history", response_model=list[HistoryItemSchema], tags=["History"])
 async def get_history(current_user: CurrentUserDep, db: DbDep):
-    return db.query(Checkin).filter(Checkin.user_id == current_user.id).order_by(Checkin.timestamp.desc()).all()
+    # Khóa cứng múi giờ Việt Nam (UTC+7)
+    tz_vn = timezone(timedelta(hours=7))
+    
+    # Lấy thời điểm 00:00:00 đầu ngày hôm nay theo giờ VN
+    today_start = datetime.now(tz_vn).replace(hour=0, minute=0, second=0, microsecond=0)
+    
+    # Lấy thời điểm 00:00:00 đầu ngày hôm sau
+    today_end = today_start + timedelta(days=1)
+
+    # Thực hiện lọc trong DB: Chỉ lấy các bản ghi nằm trong ngày hôm nay
+    return db.query(Checkin).filter(
+        Checkin.user_id == current_user.id,
+        Checkin.timestamp >= today_start,
+        Checkin.timestamp < today_end
+    ).order_by(Checkin.timestamp.desc()).all()
+
+#giu chuoi
+# 👇 THÊM ENDPOINT NÀY VÀO CUỐI FILE MAIN.PY
+@app.get("/api/streak", tags=["Stats"])
+async def get_streak(current_user: CurrentUserDep, db: DbDep):
+    # Cấu hình mục tiêu uống nước của sếp (Sếp sửa số 2000 này cho khớp với mục tiêu nhé)
+    DAILY_GOAL = 2000 
+    TARGET_90_PERCENT = DAILY_GOAL * 0.9  # Mốc 90% = 1800ml
+    
+    tz_vn = timezone(timedelta(hours=7)) # Múi giờ Việt Nam
+    all_checkins = db.query(Checkin).filter(Checkin.user_id == current_user.id).all()
+    
+    # Gom nhóm tổng lượng nước theo từng ngày (Giờ Việt Nam)
+    daily_volumes = {}
+    for c in all_checkins:
+        vn_date = c.timestamp.astimezone(tz_vn).date()
+        daily_volumes[vn_date] = daily_volumes.get(vn_date, 0) + c.volume_ml
+        
+    today = datetime.now(tz_vn).date()
+    streak = 0
+    current_date = today
+    
+    # Thuật toán quét ngược thời gian để tính chuỗi liên tục
+    while True:
+        vol = daily_volumes.get(current_date, 0)
+        
+        if vol >= TARGET_90_PERCENT:
+            streak += 1
+            current_date -= timedelta(days=1) # Còn đủ điều kiện thì lùi tiếp về hôm qua
+        elif current_date == today:
+            # Nếu hôm nay chưa uống đủ 90% thì tạm thời chưa phạt đứt chuỗi,
+            # Nhảy về hôm qua để kiểm tra xem chuỗi cũ có đang được giữ không
+            current_date -= timedelta(days=1)
+        else:
+            # Đụng phải một ngày trong quá khứ bị hụt chỉ tiêu -> Đứt chuỗi!
+            break
+            
+    return {"streak": streak}

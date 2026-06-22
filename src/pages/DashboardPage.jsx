@@ -31,6 +31,22 @@ export default function DashboardPage({ token, onLogout }) {
   const [history, setHistory]             = useState([]);
   const [toast, setToast]                 = useState(null);
 
+  //userName greeting
+  const [username, setUsername]             = useState('sếp');
+
+  // 👇 THÊM ĐOẠN NÀY: Giải mã token để lấy username (ID) ngay khi vừa vào trang
+  useEffect(() => {
+    if (token) {
+      try {
+        // Cắt khúc giữa của token và dịch nó ra tiếng người
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        setUsername(payload.sub); // Chữ "sub" chính là nơi Backend giấu tên username
+      } catch (err) {
+        console.error("Lỗi đọc token:", err);
+      }
+    }
+  }, [token]);
+
   /* Auto-dismiss toast after 3 s */
   useEffect(() => {
     if (!toast) return;
@@ -143,7 +159,7 @@ export default function DashboardPage({ token, onLogout }) {
       </header>
 
       <div className="dashboard-inner">
-        <HeaderComponent currentWater={currentWater} goalMl={GOAL_ML} />
+        <HeaderComponent currentWater={currentWater} goalMl={GOAL_ML} username={username}/>
 
         <main className="dashboard-main">
           <MainActionButtonComponent
