@@ -10,7 +10,7 @@ export default function MainActionButtonComponent({ onOpen, isCameraActive }) {
       >
         <span className="main-action-pulse" aria-hidden="true" />
         <span className="main-action-pulse main-action-pulse--delay" aria-hidden="true" />
-        <span className="main-action-icon">📸</span>
+        <span className="main-action-icon"><img src="/public/camera.png" alt="icon" id='camera-icon'/></span>
       </button>
       <p className="main-action-label">CHỤP ẢNH UỐNG NƯỚC</p>
     </div>

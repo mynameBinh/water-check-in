@@ -74,3 +74,8 @@
   color: var(--c-primary-dark);
   text-align: center;
 }
+
+/* camera icon */
+#camera-icon {
+  width: 68px;
+}
