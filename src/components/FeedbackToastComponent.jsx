@@ -24,7 +24,7 @@ export default function FeedbackToastComponent({ toast }) {
       <div className="toast-body">
         <span className="toast-icon">{ok ? '✅' : '❌'}</span>
         <div className="toast-text">
-          <p className="toast-title">{ok ? 'Tuyệt vời!' : 'Không phải cốc nước'}</p>
+          <p className="toast-title">{ok ? 'Tuyệt vời!' : 'Không phải nước lọc'}</p>
           <p className="toast-msg">{toast.message}</p>
         </div>
       </div>
