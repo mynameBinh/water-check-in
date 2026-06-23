@@ -1,0 +1,1 @@
+0 23 * * * /home/binhhn21/Code/my-react-app/venv/bin/python /home/binhhn21/Code/my-react-app/tool_tai_anh.py >> /home/binhhn21/Pictures/water-check-in/cron_log.log 2>&1

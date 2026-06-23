@@ -94,7 +94,7 @@ export default function HeaderComponent({ currentWater, goalMl }) {
           setUserName(payload.sub);
         }
 
-        const BACKEND_URL = "https://eager-kings-wave.loca.lt";
+        const BACKEND_URL = "https://binhhn21-water-check-in-backend.hf.space";
 
         fetch(`${BACKEND_URL}/api/streak`, {
           headers: { 'Authorization': `Bearer ${token}` }
