@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import DashboardPage from './pages/DashboardPage';
 import AuthPage from './pages/AuthPage';
-import AdminDashboard from './AdminDashboard'; // 👈 1. Nhập trang Admin của sếp vào đây
+import AdminDashboard from './pages/AdminDashboard'; // 👈 1. Nhập trang Admin của sếp vào đây
 
 export default function App() {
   const [token, setToken] = useState(localStorage.getItem('token'));
