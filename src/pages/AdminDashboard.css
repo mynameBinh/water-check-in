@@ -1,0 +1,93 @@
+/* Nút Đăng xuất trên góc */
+.logout-btn-admin {
+  background-color: #ef4444;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-weight: bold;
+  cursor: pointer;
+}
+.logout-btn-admin:hover { background-color: #dc2626; }
+
+/* Tabs điều hướng */
+.tab-container {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 24px;
+  border-bottom: 2px solid #1e293b;
+  padding-bottom: 12px;
+}
+.tab-btn {
+  background: none;
+  border: none;
+  color: #94a3b8;
+  font-size: 16px;
+  font-weight: bold;
+  cursor: pointer;
+  padding: 8px 16px;
+  border-radius: 8px;
+  transition: all 0.2s;
+}
+.tab-btn:hover { background-color: #1e293b; color: #fff; }
+.tab-btn.active {
+  background-color: #38bdf8;
+  color: #000;
+}
+
+/* Khu vực Thanh công cụ / Tìm kiếm */
+.filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+.search-form { width: 100%; max-width: 500px; }
+.search-input {
+  flex: 1;
+  background-color: #1e293b;
+  color: #fff;
+  border: 1px solid #38bdf8;
+  padding: 10px 16px;
+  border-radius: 8px;
+  outline: none;
+  font-size: 14px;
+}
+.search-btn {
+  background-color: #f59e0b;
+  color: #000;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-weight: bold;
+  cursor: pointer;
+}
+.search-btn:hover { background-color: #d97706; }
+
+/* Thẻ hồ sơ nhân viên */
+.user-profile-header {
+  background-color: #1c2541;
+  border: 1px solid #38bdf8;
+  border-radius: 16px;
+  padding: 20px;
+  margin-bottom: 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+.profile-info h2 { margin: 0; color: #fff; font-size: 20px; }
+.profile-stats {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+.p-stat {
+  background-color: #0b1329;
+  padding: 10px 16px;
+  border-radius: 8px;
+  font-size: 14px;
+  color: #94a3b8;
+}
+.p-stat b { color: #10b981; font-size: 16px; margin-left: 6px; }
