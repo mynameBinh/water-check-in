@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import waterLogo from './assets/water.svg'; // Đường dẫn logo đồng bộ với app
 import './AdminDashboard.css';
 
 export default function AdminDashboard({ token, onLogout }) {
@@ -57,143 +58,141 @@ export default function AdminDashboard({ token, onLogout }) {
   const totalWaterInDay = dateData?.data?.reduce((sum, item) => sum + item.volume_ml, 0) || 0;
 
   return (
-    <div className="admin-container">
+    <div className="dashboard">
       
-      {/* HEADER CỦA TRANG ADMIN */}
-      <div className="admin-header">
-        <div className="admin-title">
-          <h1>👑 BẢNG ĐIỀU KHIỂN CỦA SẾP</h1>
-          <p>Quản lý lịch sử check-in và hình ảnh của toàn bộ hệ thống</p>
+      {/* HEADER ĐỒNG BỘ VỚI TRANG DASHBOARD */}
+      <header className="top-bar">
+        <img src={waterLogo} alt="Water logo" className="top-bar-logo" />
+        <span className="top-bar-title">Quản trị Hệ thống</span>
+        <button onClick={onLogout} className="logout-button">Đăng xuất</button>
+      </header>
+
+      <div className="dashboard-inner admin-inner">
+        {/* THANH ĐIỀU HƯỚNG TABS */}
+        <div className="admin-tabs">
+          <button className={`admin-tab-btn ${viewMode === 'date' ? 'active' : ''}`} onClick={() => setViewMode('date')}>
+            🗓️ Theo ngày
+          </button>
+          <button className={`admin-tab-btn ${viewMode === 'user' ? 'active' : ''}`} onClick={() => setViewMode('user')}>
+            👤 Nhân viên
+          </button>
         </div>
-        <button onClick={onLogout} className="logout-btn-admin">Đăng xuất</button>
-      </div>
 
-      {/* THANH ĐIỀU HƯỚNG TABS */}
-      <div className="tab-container">
-        <button className={`tab-btn ${viewMode === 'date' ? 'active' : ''}`} onClick={() => setViewMode('date')}>
-          🗓️ Tình hình theo ngày
-        </button>
-        <button className={`tab-btn ${viewMode === 'user' ? 'active' : ''}`} onClick={() => setViewMode('user')}>
-          👤 Hồ sơ nhân viên
-        </button>
-      </div>
+        <main className="dashboard-main">
+          {/* ========================================================= */}
+          {/* GIAO DIỆN TAB 1: THEO NGÀY                                  */}
+          {/* ========================================================= */}
+          {viewMode === 'date' && (
+            <div className="admin-section">
+              <div className="admin-filter-bar">
+                <span className="admin-filter-label">Chọn ngày:</span>
+                <input type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} className="admin-date-input"/>
+              </div>
 
-      {/* ========================================================= */}
-      {/* GIAO DIỆN TAB 1: THEO NGÀY (CŨ)                            */}
-      {/* ========================================================= */}
-      {viewMode === 'date' && (
-        <div className="tab-content">
-          <div className="filter-bar">
-            <span>Chọn ngày xem:</span>
-            <input type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} className="date-input"/>
-          </div>
+              <div className="admin-stats-grid">
+                <div className="admin-stat-card">
+                  <p className="admin-stat-label">LƯỢT CHECK-IN</p>
+                  <p className="admin-stat-value text-blue">{dateData?.total_checkins || 0}</p>
+                </div>
+                <div className="admin-stat-card">
+                  <p className="admin-stat-label">TỔNG NƯỚC UỐNG</p>
+                  <p className="admin-stat-value text-green">{totalWaterInDay} ml</p>
+                </div>
+              </div>
 
-          <div className="stats-grid">
-            <div className="stat-card blue">
-              <p className="stat-label">TỔNG SỐ LƯỢT CHECK-IN</p>
-              <p className="stat-value">{dateData?.total_checkins || 0} lần</p>
-            </div>
-            <div className="stat-card green">
-              <p className="stat-label">TỔNG LƯỢNG NƯỚC TIÊU THỤ</p>
-              <p className="stat-value green">{totalWaterInDay} ml</p>
-            </div>
-          </div>
+              {loading && <div className="admin-status-text">🔄 Đang tải dữ liệu...</div>}
+              {error && <div className="admin-status-text error">❌ {error}</div>}
 
-          {loading && <p className="loading-text">🔄 Đang tải dữ liệu ngày...</p>}
-          {error && <p className="error-text">❌ {error}</p>}
-
-          {!loading && !error && dateData && (
-            <div className="log-card-container">
-              <h2>📸 Nhật ký ngày {selectedDate}</h2>
-              {dateData.data.length === 0 ? (
-                <p className="no-data-text">Không có ai uống nước vào ngày này.</p>
-              ) : (
-                <div className="grid-cards">
-                  {dateData.data.map((item) => (
-                    <div key={item.checkin_id} className="user-checkin-card">
-                      <div className="card-top">
-                        <b className="user-name">👤 {item.username}</b>
-                        <span className="volume-tag">+{item.volume_ml}ml</span>
-                      </div>
-                      <p className="time-text">🕒 {item.time}</p>
-                      <div className="image-box">
-                        {item.image_link_click_here !== "Không có ảnh" ? (
-                          <a href={`${BACKEND_URL}${item.image_link_click_here}`} target="_blank" rel="noreferrer">
-                            <img src={`${BACKEND_URL}${item.image_link_click_here}`} alt="Check-in" className="checkin-img" />
-                          </a>
-                        ) : (<div className="no-img-placeholder">🚫 Không có ảnh</div>)}
-                      </div>
+              {!loading && !error && dateData && (
+                <div className="admin-log-container">
+                  <h2 className="admin-section-title">Nhật ký ngày {selectedDate}</h2>
+                  {dateData.data.length === 0 ? (
+                    <div className="admin-empty-state">Không có lượt check-in nào.</div>
+                  ) : (
+                    <div className="admin-grid-cards">
+                      {dateData.data.map((item) => (
+                        <div key={item.checkin_id} className="admin-card">
+                          <div className="admin-card-header">
+                            <span className="admin-user-name">@{item.username}</span>
+                            <span className="admin-volume-tag">+{item.volume_ml}ml</span>
+                          </div>
+                          <div className="admin-card-time">🕒 {item.time}</div>
+                          <div className="admin-image-box">
+                            {item.image_link_click_here !== "Không có ảnh" ? (
+                              <a href={`${BACKEND_URL}${item.image_link_click_here}`} target="_blank" rel="noreferrer">
+                                <img src={`${BACKEND_URL}${item.image_link_click_here}`} alt="Check-in" loading="lazy" />
+                              </a>
+                            ) : (<div className="admin-no-img">🚫 Không có ảnh</div>)}
+                          </div>
+                        </div>
+                      ))}
                     </div>
-                  ))}
+                  )}
                 </div>
               )}
             </div>
           )}
-        </div>
-      )}
 
-      {/* ========================================================= */}
-      {/* GIAO DIỆN TAB 2: THEO TỪNG NHÂN VIÊN                        */}
-      {/* ========================================================= */}
-      {viewMode === 'user' && (
-        <div className="tab-content">
-          <form className="filter-bar search-form" onSubmit={fetchByUser}>
-            <input 
-              type="text" 
-              placeholder="Nhập tên đăng nhập nhân viên cần xem..." 
-              value={searchUsername} 
-              onChange={(e) => setSearchUsername(e.target.value)}
-              className="search-input"
-            />
-            <button type="submit" className="search-btn">🔍 Tìm kiếm</button>
-          </form>
+          {/* ========================================================= */}
+          {/* GIAO DIỆN TAB 2: THEO NHÂN VIÊN                             */}
+          {/* ========================================================= */}
+          {viewMode === 'user' && (
+            <div className="admin-section">
+              <form className="admin-search-form" onSubmit={fetchByUser}>
+                <input 
+                  type="text" 
+                  placeholder="Nhập username..." 
+                  value={searchUsername} 
+                  onChange={(e) => setSearchUsername(e.target.value)}
+                  className="admin-search-input"
+                />
+                <button type="submit" className="admin-search-btn">Tìm</button>
+              </form>
 
-          {loading && <p className="loading-text">🔄 Đang trích xuất hồ sơ...</p>}
-          {error && <p className="error-text">❌ {error}</p>}
+              {loading && <div className="admin-status-text">🔄 Đang trích xuất hồ sơ...</div>}
+              {error && <div className="admin-status-text error">❌ {error}</div>}
 
-          {!loading && !error && userData && (
-            <>
-              {/* THẺ THÔNG TIN TỔNG QUAN NHÂN VIÊN */}
-              <div className="user-profile-header">
-                <div className="profile-info">
-                  <h2>Hồ sơ nhân viên: <span style={{color: '#38bdf8'}}>@{userData.username}</span></h2>
-                </div>
-                <div className="profile-stats">
-                  <div className="p-stat"><span>🔥 Chuỗi Streak:</span> <b>{userData.streak} ngày</b></div>
-                  <div className="p-stat"><span>💧 Tổng nước uống:</span> <b>{userData.total_volume} ml</b></div>
-                  <div className="p-stat"><span>📸 Lần check-in:</span> <b>{userData.total_checkins} lần</b></div>
-                </div>
-              </div>
-
-              {/* LỊCH SỬ HÌNH ẢNH CỦA NHÂN VIÊN NÀY */}
-              <div className="log-card-container">
-                <h2>📸 Toàn bộ lịch sử hình ảnh của {userData.username}</h2>
-                {userData.history.length === 0 ? (
-                  <p className="no-data-text">Nhân viên này chưa check-in lần nào.</p>
-                ) : (
-                  <div className="grid-cards">
-                    {userData.history.map((item) => (
-                      <div key={item.checkin_id} className="user-checkin-card">
-                        <div className="card-top">
-                          <span className="volume-tag">+{item.volume_ml}ml</span>
-                          <span className="time-text">🕒 {item.time}</span>
-                        </div>
-                        <div className="image-box" style={{ marginTop: '10px' }}>
-                          {item.image_link !== "Không có ảnh" ? (
-                            <a href={`${BACKEND_URL}${item.image_link}`} target="_blank" rel="noreferrer">
-                              <img src={`${BACKEND_URL}${item.image_link}`} alt="Check-in" className="checkin-img" />
-                            </a>
-                          ) : (<div className="no-img-placeholder">🚫 Không có ảnh</div>)}
-                        </div>
-                      </div>
-                    ))}
+              {!loading && !error && userData && (
+                <>
+                  <div className="admin-profile-card">
+                    <h2 className="admin-profile-name">@{userData.username}</h2>
+                    <div className="admin-profile-stats">
+                      <div className="admin-p-stat"><span>🔥 Streak:</span> <strong>{userData.streak} ngày</strong></div>
+                      <div className="admin-p-stat"><span>💧 Tổng nước:</span> <strong>{userData.total_volume} ml</strong></div>
+                      <div className="admin-p-stat"><span>📸 Check-in:</span> <strong>{userData.total_checkins} lần</strong></div>
+                    </div>
                   </div>
-                )}
-              </div>
-            </>
+
+                  <div className="admin-log-container">
+                    <h2 className="admin-section-title">Lịch sử ảnh cá nhân</h2>
+                    {userData.history.length === 0 ? (
+                      <div className="admin-empty-state">Nhân viên này chưa uống nước.</div>
+                    ) : (
+                      <div className="admin-grid-cards">
+                        {userData.history.map((item) => (
+                          <div key={item.checkin_id} className="admin-card">
+                            <div className="admin-card-header">
+                              <span className="admin-card-time" style={{margin:0}}>🕒 {item.time}</span>
+                              <span className="admin-volume-tag">+{item.volume_ml}ml</span>
+                            </div>
+                            <div className="admin-image-box" style={{ marginTop: '10px' }}>
+                              {item.image_link !== "Không có ảnh" ? (
+                                <a href={`${BACKEND_URL}${item.image_link}`} target="_blank" rel="noreferrer">
+                                  <img src={`${BACKEND_URL}${item.image_link}`} alt="Check-in" loading="lazy" />
+                                </a>
+                              ) : (<div className="admin-no-img">🚫 Không ảnh</div>)}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
           )}
-        </div>
-      )}
+        </main>
+      </div>
     </div>
   );
 }
