@@ -273,3 +273,61 @@
   background: rgba(0,0,0,0.1);
   border-radius: 12px;
 }
+
+/* --- BỔ SUNG: KHU VỰC MENU TÌM KIẾM THẢ XUỐNG --- */
+.admin-search-wrapper {
+  position: relative;
+  flex: 1; /* Để ô tìm kiếm dài ra chiếm hết chỗ trống */
+}
+
+.admin-back-btn {
+    padding: 12px 16px;
+    border-radius: var(--r-md, 16px);
+    background-color: #dff5fe;
+    border: none;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+    transition: all 0.1s ease-in;
+}
+.admin-back-btn:hover {
+  transform: scale(1.05);
+  cursor: pointer;
+}
+
+
+.admin-user-list-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.admin-user-select-card {
+  background: var(--c-surface, #1e293b);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  padding: 20px 10px;
+  text-align: center;
+  cursor: pointer;
+  transition: transform 0.2s ease, border-color 0.2s ease, background-color 0.2s ease;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+}
+
+.admin-user-select-card:hover {
+  transform: translateY(-3px);
+  background-color: rgba(56, 189, 248, 0.05);
+  border-color: var(--c-primary, #38bdf8);
+}
+
+.admin-user-select-card .user-icon {
+  font-size: 28px;
+  margin-bottom: 8px;
+}
+
+.admin-user-select-card .user-name {
+  color: var(--c-text-h, #f8fafc);
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
