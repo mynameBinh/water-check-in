@@ -23,4 +23,8 @@ dist-ssr
 *.sln
 *.sw?
 
-/tool_tai_anh.py
+tool_tai_anh.py
+log_tai_anh.txt
+backend/
+
+.env

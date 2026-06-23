@@ -220,14 +220,18 @@
 
 /* Khi Flash đang bật thì đổi màu nút cho rực rỡ */
 .flash-btn--on {
-  background: #f1c40f;
+  background: #eee8ce;
   color: #000;
-  border-color: #f39c12;
+  border-color: #f8c97d;
   box-shadow: 0 0 10px rgba(241, 196, 15, 0.5);
 }
 
 .flash-btn:active {
   transform: scale(0.95);
+}
+
+.flash-icon{
+  width: 15px;
 }
 
 @keyframes spin {

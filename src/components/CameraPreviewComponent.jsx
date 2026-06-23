@@ -136,7 +136,7 @@ export default function CameraPreviewComponent({ capturedImage, aiStatus, onCapt
                     onClick={toggleFlash}
                     aria-label="Bật tắt đèn Flash"
                   >
-                    {isFlashOn ? '⚡ Flash: ON' : '💡 Flash: OFF'}
+                    {isFlashOn ?  <img src="/flash-on.png" alt="icon" className='flash-icon'/> : <img src="/flash-off.png" alt="icon" className='flash-icon'/>}
                   </button>
                 )}
 
