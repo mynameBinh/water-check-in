@@ -292,7 +292,6 @@ export default function AdminDashboard({ token, onLogout }) {
                     <div className="admin-profile-stats">
                       <div className="admin-p-stat"><span>🔥 Streak:</span> <strong>{userData.streak} ngày</strong></div>
                       <div className="admin-p-stat"><span>💧 Tổng nước (All):</span> <strong>{userData.total_volume} ml</strong></div>
-                      <div className="admin-p-stat"><span>🎯 Goal hiện tại:</span> <strong style={{ color: '#38bdf8' }}>{userData.daily_goal || 1000} ml</strong></div>
                     </div>
 
                     <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
