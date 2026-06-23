@@ -274,7 +274,8 @@ export default function AdminDashboard({ token, onLogout }) {
                 </>
               )}
 
-              {selectedUser && userData && (
+              {/* 👇 ĐÃ SỬA: Bỏ điều kiện "&& userData" để Nút Quay lại luôn hiện ra kể cả khi chưa có data */}
+              {selectedUser && (
                 <>
                   <button className="admin-back-btn" onClick={() => {
                     setSelectedUser(null);
@@ -285,75 +286,82 @@ export default function AdminDashboard({ token, onLogout }) {
                     ⬅ Quay lại danh sách User
                   </button>
 
+                  {/* Hiển thị lỗi hoặc trạng thái đang tải */}
                   {error && <div className="admin-status-text error">❌ {error}</div>}
+                  {!userData && !error && <div className="admin-status-text">🔄 Đang tải dữ liệu của @{selectedUser}...</div>}
 
-                  <div className="admin-profile-card">
-                    <h2 className="admin-profile-name">@{userData.username}</h2>
-                    <div className="admin-profile-stats">
-                      <div className="admin-p-stat"><span>🔥 Streak:</span> <strong>{userData.streak} ngày</strong></div>
-                      <div className="admin-p-stat"><span>💧 Tổng nước (All):</span> <strong>{userData.total_volume} ml</strong></div>
-                    </div>
+                  {/* Chỉ render phần hồ sơ khi userData đã tải xong */}
+                  {userData && (
+                    <>
+                      <div className="admin-profile-card">
+                        <h2 className="admin-profile-name">@{userData.username}</h2>
+                        <div className="admin-profile-stats">
+                          <div className="admin-p-stat"><span>🔥 Streak:</span> <strong>{userData.streak} ngày</strong></div>
+                          <div className="admin-p-stat"><span>💧 Tổng nước (All):</span> <strong>{userData.total_volume} ml</strong></div>
+                        </div>
 
-                    <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-                      <span style={{ fontSize: '14px', color: '#94a3b8', fontWeight: '600' }}>🎯 KPI Nước:</span>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <input 
-                          type="number" 
-                          value={editingGoal} 
-                          onChange={(e) => setEditingGoal(e.target.value)}
-                          className='updateInput'
-                        />
-                        <span style={{ fontSize: '14px', color: '#fff' }}>ml</span>
-                      </div>
-                      <button 
-                        type="button"
-                        onClick={handleUpdateGoal}
-                        disabled={isUpdatingGoal}
-                        className='updateBtn'
-                      >
-                        {isUpdatingGoal ? 'Đang lưu...' : 'Cập nhật'}
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="admin-filter-bar" style={{ marginTop: '16px' }}>
-                    <span className="admin-filter-label">Theo dõi ảnh ngày:</span>
-                    <input 
-                      type="date" 
-                      value={selectedDate} 
-                      onChange={(e) => setSelectedDate(e.target.value)} 
-                      className="admin-date-input"
-                    />
-                  </div>
-
-                  <div className="admin-log-container">
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                      <h2 className="admin-section-title" style={{ margin: 0 }}>Nhật ký ngày {selectedDate}</h2>
-                      <span className="text-green" style={{ fontWeight: 'bold' }}>Đã uống: {userWaterOnDate}ml</span>
-                    </div>
-
-                    {userLogsOnDate.length === 0 ? (
-                      <div className="admin-empty-state">User này chưa uống nước hôm nay.</div>
-                    ) : (
-                      <div className="admin-grid-cards">
-                        {userLogsOnDate.map((item) => (
-                          <div key={item.checkin_id} className="admin-card">
-                            <div className="admin-card-header">
-                              <span className="admin-card-time" style={{margin:0}}>🕒 {item.time}</span>
-                              <span className="admin-volume-tag">+{item.volume_ml}ml</span>
-                            </div>
-                            <div className="admin-image-box" style={{ marginTop: '10px' }}>
-                              {item.image_link_click_here !== "Không có ảnh" ? (
-                                <a href={`${BACKEND_URL}${item.image_link_click_here}`} target="_blank" rel="noreferrer">
-                                  <img src={`${BACKEND_URL}${item.image_link_click_here}`} alt="Check-in" loading="lazy" />
-                                </a>
-                              ) : (<div className="admin-no-img">🚫 Không ảnh</div>)}
-                            </div>
+                        <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                          <span style={{ fontSize: '14px', color: '#94a3b8', fontWeight: '600' }}>🎯 KPI Nước:</span>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <input 
+                              type="number" 
+                              value={editingGoal} 
+                              onChange={(e) => setEditingGoal(e.target.value)}
+                              className='updateInput'
+                            />
+                            <span style={{ fontSize: '14px', color: '#fff' }}>ml</span>
                           </div>
-                        ))}
+                          <button 
+                            type="button"
+                            onClick={handleUpdateGoal}
+                            disabled={isUpdatingGoal}
+                            className='updateBtn'
+                          >
+                            {isUpdatingGoal ? 'Đang lưu...' : 'Cập nhật'}
+                          </button>
+                        </div>
                       </div>
-                    )}
-                  </div>
+
+                      <div className="admin-filter-bar" style={{ marginTop: '16px' }}>
+                        <span className="admin-filter-label">Theo dõi ảnh ngày:</span>
+                        <input 
+                          type="date" 
+                          value={selectedDate} 
+                          onChange={(e) => setSelectedDate(e.target.value)} 
+                          className="admin-date-input"
+                        />
+                      </div>
+
+                      <div className="admin-log-container">
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                          <h2 className="admin-section-title" style={{ margin: 0 }}>Nhật ký ngày {selectedDate}</h2>
+                          <span className="text-green" style={{ fontWeight: 'bold' }}>Đã uống: {userWaterOnDate}ml</span>
+                        </div>
+
+                        {userLogsOnDate.length === 0 ? (
+                          <div className="admin-empty-state">User này chưa uống nước hôm nay.</div>
+                        ) : (
+                          <div className="admin-grid-cards">
+                            {userLogsOnDate.map((item) => (
+                              <div key={item.checkin_id} className="admin-card">
+                                <div className="admin-card-header">
+                                  <span className="admin-card-time" style={{margin:0}}>🕒 {item.time}</span>
+                                  <span className="admin-volume-tag">+{item.volume_ml}ml</span>
+                                </div>
+                                <div className="admin-image-box" style={{ marginTop: '10px' }}>
+                                  {item.image_link_click_here !== "Không có ảnh" ? (
+                                    <a href={`${BACKEND_URL}${item.image_link_click_here}`} target="_blank" rel="noreferrer">
+                                      <img src={`${BACKEND_URL}${item.image_link_click_here}`} alt="Check-in" loading="lazy" />
+                                    </a>
+                                  ) : (<div className="admin-no-img">🚫 Không ảnh</div>)}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </>
+                  )}
                 </>
               )}
             </div>
