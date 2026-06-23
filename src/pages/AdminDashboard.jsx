@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import waterLogo from './assets/water.svg'; // Đường dẫn logo đồng bộ với app
+import waterLogo from './public/favicon.svg'; // Đường dẫn logo đồng bộ với app
 import './AdminDashboard.css';
 
 export default function AdminDashboard({ token, onLogout }) {
