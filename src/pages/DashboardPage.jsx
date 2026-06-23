@@ -34,7 +34,7 @@ export default function DashboardPage({ token, onLogout }) {
   const [username, setUsername] = useState('sếp');
 
   // daily_goal linh hoạt cho từng người
-  const [goalMl, setGoalMl] = useState(1800);
+  const [goalMl, setGoalMl] = useState(1750);
 
   // Giải mã token để lấy username (ID) ngay khi vừa vào trang
   useEffect(() => {
