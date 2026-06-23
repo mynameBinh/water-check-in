@@ -17,13 +17,17 @@ export default function AdminDashboard({ token, onLogout }) {
   const [selectedUser, setSelectedUser] = useState(null); 
   const [userData, setUserData] = useState(null); 
 
+  // 👇 THÊM TRẠNG THÁI MỚI ĐỂ ĐIỀU KHIỂN CHỈNH SỬA KPI LƯỢNG NƯỚC
+  const [editingGoal, setEditingGoal] = useState(1800);
+  const [isUpdatingGoal, setIsUpdatingGoal] = useState(false);
+  const [lastSyncedUser, setLastSyncedUser] = useState(''); // Chống xung đột với auto-refresh 10s
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
   const BACKEND_URL = "https://binhhn21-water-check-in-backend.hf.space";
 
   // 1. GỌI DỮ LIỆU TOÀN HỆ THỐNG THEO NGÀY
-  // Thêm tham số isBackground để phân biệt tải lần đầu (hiện loading) và tải ngầm (không loading)
   const fetchByDate = (isBackground = false) => {
     if (!isBackground) { setLoading(true); setError(''); }
     
@@ -66,22 +70,56 @@ export default function AdminDashboard({ token, onLogout }) {
       });
   };
 
-  // 👇 TÍNH NĂNG ĐẮT GIÁ: TỰ ĐỘNG REFRESH DỮ LIỆU MỖI 10 GIÂY
+  // 👇 ĐỒNG BỘ MỤC TIÊU LÊN Ô NHẬP LIỆU (Chỉ kích hoạt khi sếp chuyển hẳn sang xem User khác)
   useEffect(() => {
-    // Gọi lần đầu tiên khi đổi ngày
+    if (userData && userData.username !== lastSyncedUser) {
+      setEditingGoal(userData.daily_goal || 1800);
+      setLastSyncedUser(userData.username);
+    }
+  }, [userData, lastSyncedUser]);
+
+  // 👇 HÀM XỬ LÝ GỬI YÊU CẦU ĐỔI KPI LÊN BACKEND
+  const handleUpdateGoal = () => {
+    if (!userData) return;
+    setIsUpdatingGoal(true);
+
+    fetch(`${BACKEND_URL}/api/admin/users/${userData.username}/goal`, {
+      method: 'PUT',
+      headers: { 
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ daily_goal: parseInt(editingGoal, 10) || 1800 })
+    })
+      .then(res => {
+        if (!res.ok) throw new Error('Không thể cập nhật mục tiêu uống nước!');
+        return res.json();
+      })
+      .then(() => {
+        // Cập nhật giá trị mới trực tiếp vào state hiện tại
+        setUserData(prev => ({ ...prev, daily_goal: parseInt(editingGoal, 10) }));
+        setIsUpdatingGoal(false);
+        alert(`✅ Đã đổi mục tiêu thành công của @${userData.username} thành ${editingGoal}ml!`);
+      })
+      .catch(err => {
+        alert(`❌ Thất bại: ${err.message}`);
+        setIsUpdatingGoal(false);
+      });
+  };
+
+  // TỰ ĐỘNG REFRESH DỮ LIỆU MỖI 10 GIÂY
+  useEffect(() => {
     fetchByDate(false); 
 
-    // Cài đặt đồng hồ tự động load ngầm (10 giây / lần)
     const intervalDate = setInterval(() => {
       fetchByDate(true); 
     }, 10000);
 
-    // Dọn dẹp đồng hồ cũ nếu sếp đổi ngày khác
     return () => clearInterval(intervalDate);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedDate]);
 
-  // 👇 TỰ ĐỘNG REFRESH CẢ THÔNG TIN STREAK NẾU ĐANG BẬT TAB 1 USER CỤ THỂ
+  // TỰ ĐỘNG REFRESH CẢ THÔNG TIN STREAK NẾU ĐANG BẬT TAB 1 USER CỤ THỂ
   useEffect(() => {
     if (!selectedUser) return;
 
@@ -108,6 +146,7 @@ export default function AdminDashboard({ token, onLogout }) {
       setSelectedUser(null);
       setUserData(null);
       setSearchUserQuery('');
+      setLastSyncedUser('');
     }
   };
 
@@ -240,6 +279,7 @@ export default function AdminDashboard({ token, onLogout }) {
                     setSelectedUser(null);
                     setUserData(null);
                     setError('');
+                    setLastSyncedUser('');
                   }}>
                     ⬅ Quay lại danh sách User
                   </button>
@@ -251,6 +291,28 @@ export default function AdminDashboard({ token, onLogout }) {
                     <div className="admin-profile-stats">
                       <div className="admin-p-stat"><span>🔥 Streak:</span> <strong>{userData.streak} ngày</strong></div>
                       <div className="admin-p-stat"><span>💧 Tổng nước (All):</span> <strong>{userData.total_volume} ml</strong></div>
+                    </div>
+
+                    {/* 👇 TÍNH NĂNG MỚI: FORM ĐIỀU CHỈNH LƯỢNG NƯỚC TRỰC QUAN NGAY TRÊN HỒ SƠ */}
+                    <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: '14px', color: '#94a3b8', fontWeight: '600' }}>🎯 KPI Nước mặc định:</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <input 
+                          type="number" 
+                          value={editingGoal} 
+                          onChange={(e) => setEditingGoal(e.target.value)}
+                          className='updateInput'
+                        />
+                        <span style={{ fontSize: '14px', color: '#fff' }}>ml</span>
+                      </div>
+                      <button 
+                        type="button"
+                        onClick={handleUpdateGoal}
+                        disabled={isUpdatingGoal}
+                        className='updateBtn'
+                      >
+                        {isUpdatingGoal ? 'Đang lưu...' : 'Cập nhật KPI'}
+                      </button>
                     </div>
                   </div>
 

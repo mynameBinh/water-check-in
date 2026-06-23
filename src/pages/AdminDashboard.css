@@ -331,3 +331,41 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+
+
+.updateBtn {
+    padding: 10px 15px;
+    border-radius: 12px;
+    border: var(--c-surface);
+    background-color: #c1e9fa;
+    box-shadow: 0 4px 5px rgba(0, 0, 0, 0.1);
+    transition: all 0.1s ease-in;
+}
+.updateBtn:hover {
+    cursor: pointer;
+    scale: calc(1.05);
+}
+.updateBtn:active{
+    background-color: #dff5fe;
+}
+
+/* Ẩn mũi tên cho các trình duyệt Chrome, Safari, Edge, và Opera */
+input[type=number]::-webkit-outer-spin-button,
+input[type=number]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.updateInput {
+    padding: 10px 15px;
+    border-radius: 12px;
+    border: 1px solid #c1e9fa;
+    background-color: #f1f6f9;
+    box-shadow: 0 4px 5px rgba(0, 0, 0, 0.1);
+    transition: all 0.1s ease-in;
+}
+.updateInput:focus {
+    scale: calc(0.95);
+    background-color: #edf1df;
+}

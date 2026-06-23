@@ -8,7 +8,6 @@ import HistoryComponent from '../components/HistoryComponent';
 import './DashboardPage.css';
 
 const API_BASE = 'https://binhhn21-water-check-in-backend.hf.space';
-const GOAL_ML = 1000;
 const CHECKIN_ML = 250;
 
 // 👇 HÀM CHUYỂN ĐỔI ẢNH (Trị dứt điểm lỗi String did not match trên điện thoại)
@@ -24,41 +23,53 @@ const dataURItoBlob = (dataURI) => {
 };
 
 export default function DashboardPage({ token, onLogout }) {
-  const [currentWater, setCurrentWater]   = useState(0);
+  const [currentWater, setCurrentWater]     = useState(0);
   const [isCameraActive, setIsCameraActive] = useState(false);
-  const [capturedImage, setCapturedImage] = useState(null);
-  const [aiStatus, setAiStatus]           = useState('idle');
-  const [history, setHistory]             = useState([]);
-  const [toast, setToast]                 = useState(null);
+  const [capturedImage, setCapturedImage]   = useState(null);
+  const [aiStatus, setAiStatus]             = useState('idle');
+  const [history, setHistory]               = useState([]);
+  const [toast, setToast]                   = useState(null);
 
-  //userName greeting
-  const [username, setUsername]             = useState('sếp');
+  // username greeting
+  const [username, setUsername] = useState('sếp');
 
-  // 👇 THÊM ĐOẠN NÀY: Giải mã token để lấy username (ID) ngay khi vừa vào trang
+  // daily_goal linh hoạt cho từng người
+  const [goalMl, setGoalMl] = useState(1800);
+
+  // Giải mã token để lấy username (ID) ngay khi vừa vào trang
   useEffect(() => {
     if (token) {
       try {
-        // Cắt khúc giữa của token và dịch nó ra tiếng người
         const payload = JSON.parse(atob(token.split('.')[1]));
-        setUsername(payload.sub); // Chữ "sub" chính là nơi Backend giấu tên username
+        setUsername(payload.sub); 
       } catch (err) {
         console.error("Lỗi đọc token:", err);
       }
     }
   }, [token]);
 
-  /* Auto-dismiss toast after 3 s */
+  /* Auto-dismiss toast after 3s */
   useEffect(() => {
     if (!toast) return;
     const t = setTimeout(() => setToast(null), 3000);
     return () => clearTimeout(t);
   }, [toast]);
 
-  /* Fetch history on mount */
-  /* Fetch history on mount */
+  // 👇 GỘP CHUNG: VỪA LẤY LỊCH SỬ, VỪA LẤY MỤC TIÊU UỐNG NƯỚC
   useEffect(() => {
-    const fetchHistory = async () => {
+    const fetchData = async () => {
       try {
+        // 1. LẤY MỤC TIÊU UỐNG NƯỚC (DAILY GOAL)
+        fetch(`${API_BASE}/api/me`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        })
+          .then(res => res.json())
+          .then(data => {
+            if (data.daily_goal) setGoalMl(data.daily_goal);
+          })
+          .catch(err => console.error("Lỗi lấy mục tiêu:", err));
+
+        // 2. LẤY LỊCH SỬ CHECK-IN TRONG NGÀY
         const res = await fetch(`${API_BASE}/api/history`, {
           headers: { 
             'Authorization': `Bearer ${token}`,
@@ -66,10 +77,9 @@ export default function DashboardPage({ token, onLogout }) {
           },
         });
         
-        // Nếu server từ chối (401 Hết token) hoặc sập ngầm
         if (!res.ok) {
           if (res.status === 401 || res.status === 403) {
-            onLogout(); // Đá văng ngay lập tức
+            onLogout();
             return;
           }
           throw new Error('Server không phản hồi.');
@@ -90,21 +100,21 @@ export default function DashboardPage({ token, onLogout }) {
             status: 'success', 
           };
         }));
+        
         const totalWater = data.reduce((sum, item) => sum + item.volume_ml, 0);
         setCurrentWater(totalWater);
         
       } catch (err) {
-        console.error("Lỗi khi tải lịch sử: ", err);
-        // 👇 TỰ ĐỘNG ĐÁ VĂNG NẾU LỖI MẠNG / BACKEND SẬP
+        console.error("Lỗi khi tải dữ liệu ban đầu: ", err);
         setToast({ type: 'error', message: 'Mất kết nối Server! Vui lòng đăng nhập lại...' });
         setTimeout(() => {
           onLogout();
-        }, 1500); // Trì hoãn 1.5 giây để user kịp đọc lý do trước khi bị văng
+        }, 1500); 
       }
     };
     
     if (token) {
-      fetchHistory();
+      fetchData();
     }
   }, [token, onLogout]);
 
@@ -142,11 +152,10 @@ export default function DashboardPage({ token, onLogout }) {
         throw new Error(errData.detail?.message || errData.detail || 'Check-in thất bại.');
       }
 
-      // Đọc dữ liệu thành công từ Backend
       const data = await res.json();
 
-      // 👇 ĐÂY CHÍNH LÀ ĐOẠN BỊ XÓA NHẦM (Cập nhật UI sau khi thành công)
-      setCurrentWater(prev => Math.min(prev + CHECKIN_ML, GOAL_ML));
+      // Cập nhật nước dùng biến goalMl (thêm mục tiêu)
+      setCurrentWater(prev => Math.min(prev + CHECKIN_ML, goalMl));
       
       setHistory(prev => [{
         id: Date.now(),
@@ -160,7 +169,6 @@ export default function DashboardPage({ token, onLogout }) {
       setAiStatus('success');
       setToast({ type: 'success', message: data.message || 'Check-in thành công!' });
       
-      // Cho user nhìn chữ "Thành công" khoảng 1.5 giây rồi mới tự động đóng Camera
       setTimeout(() => {
         setIsCameraActive(false);
         setCapturedImage(null);
@@ -180,7 +188,7 @@ export default function DashboardPage({ token, onLogout }) {
         setToast({ type: 'error', message: err.message || 'Lỗi khi check-in.' });
       }
     }
-  }, [token, onLogout]);
+  }, [token, onLogout, goalMl]); // Đưa goalMl vào dependency để React lấy đúng mục tiêu mới
 
   const handleRetry = () => {
     setCapturedImage(null);
@@ -202,7 +210,7 @@ export default function DashboardPage({ token, onLogout }) {
       </header>
 
       <div className="dashboard-inner">
-        <HeaderComponent currentWater={currentWater} goalMl={GOAL_ML} username={username}/>
+        <HeaderComponent currentWater={currentWater} goalMl={goalMl} username={username}/>
 
         <main className="dashboard-main">
           <MainActionButtonComponent
