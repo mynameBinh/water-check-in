@@ -1,9 +1,15 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import waterLogo from '../assets/water.svg';
 import './AdminDashboard.css';
 
+// 👇 FIX 1: Hàm lấy chính xác ngày hiện tại theo đúng múi giờ máy tính của sếp (Local Time)
+const getLocalDateString = () => {
+  const tzOffset = new Date().getTimezoneOffset() * 60000;
+  return new Date(Date.now() - tzOffset).toISOString().split('T')[0];
+};
+
 export default function AdminDashboard({ token, onLogout }) {
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = getLocalDateString();
   
   const [viewMode, setViewMode] = useState('date');
 
@@ -17,21 +23,22 @@ export default function AdminDashboard({ token, onLogout }) {
   const [selectedUser, setSelectedUser] = useState(null); 
   const [userData, setUserData] = useState(null); 
 
-  // 👇 THÊM TRẠNG THÁI MỚI ĐỂ ĐIỀU KHIỂN CHỈNH SỬA KPI LƯỢNG NƯỚC
-  const [editingGoal, setEditingGoal] = useState(1800);
+  // Trạng thái chỉnh sửa Goal
+  const [editingGoal, setEditingGoal] = useState('');
   const [isUpdatingGoal, setIsUpdatingGoal] = useState(false);
-  const [lastSyncedUser, setLastSyncedUser] = useState(''); // Chống xung đột với auto-refresh 10s
+  const [lastSyncedUser, setLastSyncedUser] = useState('');
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
   const BACKEND_URL = "https://binhhn21-water-check-in-backend.hf.space";
 
+  // 👇 FIX 2: Bọc useCallback để React hiểu đúng ngày truyền vào, không bị kẹt ngày cũ
   // 1. GỌI DỮ LIỆU TOÀN HỆ THỐNG THEO NGÀY
-  const fetchByDate = (isBackground = false) => {
+  const fetchByDate = useCallback((dateStr, isBackground = false) => {
     if (!isBackground) { setLoading(true); setError(''); }
     
-    fetch(`${BACKEND_URL}/api/admin/checkins?date_str=${selectedDate}`, {
+    fetch(`${BACKEND_URL}/api/admin/checkins?date_str=${dateStr}`, {
       headers: { 'Authorization': `Bearer ${token}` }
     })
       .then(res => res.json())
@@ -40,20 +47,20 @@ export default function AdminDashboard({ token, onLogout }) {
         if (!isBackground) setError("Lỗi khi tải dữ liệu ngày!"); 
         if (!isBackground) setLoading(false); 
       });
-  };
+  }, [token]);
 
   // 2. LẤY DANH SÁCH USER
-  const fetchAllUsers = () => {
+  const fetchAllUsers = useCallback(() => {
     fetch(`${BACKEND_URL}/api/admin/users`, {
       headers: { 'Authorization': `Bearer ${token}` }
     })
       .then(res => res.json())
       .then(data => setUserList(data))
       .catch(err => console.error("Lỗi tải danh sách User:", err));
-  };
+  }, [token]);
 
-  // 3. LẤY HỒ SƠ TỔNG (STREAK) CỦA 1 USER
-  const fetchUserRecord = (targetUsername, isBackground = false) => {
+  // 3. LẤY HỒ SƠ TỔNG (STREAK & GOAL) CỦA 1 USER
+  const fetchUserRecord = useCallback((targetUsername, isBackground = false) => {
     if (!isBackground) { setLoading(true); setError(''); }
     
     fetch(`${BACKEND_URL}/api/admin/user-details?username=${targetUsername}`, {
@@ -68,17 +75,18 @@ export default function AdminDashboard({ token, onLogout }) {
         if (!isBackground) setError(err.message); 
         if (!isBackground) setLoading(false); 
       });
-  };
+  }, [token]);
 
-  // 👇 ĐỒNG BỘ MỤC TIÊU LÊN Ô NHẬP LIỆU (Chỉ kích hoạt khi sếp chuyển hẳn sang xem User khác)
+  // TỰ ĐỘNG ĐỒNG BỘ GOAL
   useEffect(() => {
     if (userData && userData.username !== lastSyncedUser) {
-      setEditingGoal(userData.daily_goal || 1800);
+      const currentGoal = userData.daily_goal !== undefined ? userData.daily_goal : 1000;
+      setEditingGoal(currentGoal);
       setLastSyncedUser(userData.username);
     }
   }, [userData, lastSyncedUser]);
 
-  // 👇 HÀM XỬ LÝ GỬI YÊU CẦU ĐỔI KPI LÊN BACKEND
+  // GỬI YÊU CẦU ĐỔI KPI LÊN BACKEND
   const handleUpdateGoal = () => {
     if (!userData) return;
     setIsUpdatingGoal(true);
@@ -89,17 +97,16 @@ export default function AdminDashboard({ token, onLogout }) {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({ daily_goal: parseInt(editingGoal, 10) || 1800 })
+      body: JSON.stringify({ daily_goal: parseInt(editingGoal, 10) || 1000 })
     })
       .then(res => {
         if (!res.ok) throw new Error('Không thể cập nhật mục tiêu uống nước!');
         return res.json();
       })
       .then(() => {
-        // Cập nhật giá trị mới trực tiếp vào state hiện tại
         setUserData(prev => ({ ...prev, daily_goal: parseInt(editingGoal, 10) }));
         setIsUpdatingGoal(false);
-        alert(`✅ Đã đổi mục tiêu thành công của @${userData.username} thành ${editingGoal}ml!`);
+        alert(`✅ Đã đổi mục tiêu của @${userData.username} thành ${editingGoal}ml thành công!`);
       })
       .catch(err => {
         alert(`❌ Thất bại: ${err.message}`);
@@ -107,19 +114,19 @@ export default function AdminDashboard({ token, onLogout }) {
       });
   };
 
-  // TỰ ĐỘNG REFRESH DỮ LIỆU MỖI 10 GIÂY
+  // 👇 FIX 3: Luôn lấy `selectedDate` mới nhất đẩy vào interval 10s
+  // TỰ ĐỘNG REFRESH DỮ LIỆU THEO NGÀY
   useEffect(() => {
-    fetchByDate(false); 
+    fetchByDate(selectedDate, false); 
 
     const intervalDate = setInterval(() => {
-      fetchByDate(true); 
+      fetchByDate(selectedDate, true); 
     }, 10000);
 
     return () => clearInterval(intervalDate);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedDate]);
+  }, [selectedDate, fetchByDate]);
 
-  // TỰ ĐỘNG REFRESH CẢ THÔNG TIN STREAK NẾU ĐANG BẬT TAB 1 USER CỤ THỂ
+  // TỰ ĐỘNG REFRESH THÔNG TIN USER
   useEffect(() => {
     if (!selectedUser) return;
 
@@ -128,14 +135,12 @@ export default function AdminDashboard({ token, onLogout }) {
     }, 10000);
 
     return () => clearInterval(intervalUser);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedUser]);
+  }, [selectedUser, fetchUserRecord]);
 
   // Fetch danh sách User khi vào tab User
   useEffect(() => {
     if (viewMode === 'user' && userList.length === 0) fetchAllUsers();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [viewMode]);
+  }, [viewMode, userList.length, fetchAllUsers]);
 
   // Xử lý chuyển tab
   const handleTabChange = (mode) => {
@@ -176,9 +181,7 @@ export default function AdminDashboard({ token, onLogout }) {
 
         <main className="dashboard-main">
           
-          {/* ========================================================= */}
-          {/* TAB 1: HIỂN THỊ TẤT CẢ CHECK-IN CỦA TOÀN BỘ HỆ THỐNG        */}
-          {/* ========================================================= */}
+          {/* TAB 1: HIỂN THỊ TẤT CẢ CHECK-IN */}
           {viewMode === 'date' && (
             <div className="admin-section">
               <div className="admin-filter-bar">
@@ -230,9 +233,7 @@ export default function AdminDashboard({ token, onLogout }) {
             </div>
           )}
 
-          {/* ========================================================= */}
-          {/* TAB 2: QUẢN LÝ RIÊNG LẺ TỪNG USER                           */}
-          {/* ========================================================= */}
+          {/* TAB 2: QUẢN LÝ RIÊNG LẺ TỪNG USER */}
           {viewMode === 'user' && (
             <div className="admin-section">
               
@@ -291,11 +292,11 @@ export default function AdminDashboard({ token, onLogout }) {
                     <div className="admin-profile-stats">
                       <div className="admin-p-stat"><span>🔥 Streak:</span> <strong>{userData.streak} ngày</strong></div>
                       <div className="admin-p-stat"><span>💧 Tổng nước (All):</span> <strong>{userData.total_volume} ml</strong></div>
+                      <div className="admin-p-stat"><span>🎯 Goal hiện tại:</span> <strong style={{ color: '#38bdf8' }}>{userData.daily_goal || 1000} ml</strong></div>
                     </div>
 
-                    {/* 👇 TÍNH NĂNG MỚI: FORM ĐIỀU CHỈNH LƯỢNG NƯỚC TRỰC QUAN NGAY TRÊN HỒ SƠ */}
                     <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-                      <span style={{ fontSize: '14px', color: '#94a3b8', fontWeight: '600' }}>🎯 KPI Nước mặc định:</span>
+                      <span style={{ fontSize: '14px', color: '#94a3b8', fontWeight: '600' }}>🎯 KPI Nước:</span>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                         <input 
                           type="number" 
@@ -311,7 +312,7 @@ export default function AdminDashboard({ token, onLogout }) {
                         disabled={isUpdatingGoal}
                         className='updateBtn'
                       >
-                        {isUpdatingGoal ? 'Đang lưu...' : 'Cập nhật KPI'}
+                        {isUpdatingGoal ? 'Đang lưu...' : 'Cập nhật'}
                       </button>
                     </div>
                   </div>

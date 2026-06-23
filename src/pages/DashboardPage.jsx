@@ -55,38 +55,43 @@ export default function DashboardPage({ token, onLogout }) {
     return () => clearTimeout(t);
   }, [toast]);
 
-  // 👇 GỘP CHUNG: VỪA LẤY LỊCH SỬ, VỪA LẤY MỤC TIÊU UỐNG NƯỚC
+  // ✅ ĐÃ TỐI ƯU: Sử dụng Promise.all để gọi song song 2 API giúp load trang nhanh gấp đôi và đồng bộ hoàn hảo
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // 1. LẤY MỤC TIÊU UỐNG NƯỚC (DAILY GOAL)
-        fetch(`${API_BASE}/api/me`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        })
-          .then(res => res.json())
-          .then(data => {
-            if (data.daily_goal) setGoalMl(data.daily_goal);
+        const [profileRes, historyRes] = await Promise.all([
+          fetch(`${API_BASE}/api/profile`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          }),
+          fetch(`${API_BASE}/api/history`, {
+            headers: { 
+              'Authorization': `Bearer ${token}`,
+              'bypass-tunnel-reminder': 'true' 
+            },
           })
-          .catch(err => console.error("Lỗi lấy mục tiêu:", err));
+        ]);
 
-        // 2. LẤY LỊCH SỬ CHECK-IN TRONG NGÀY
-        const res = await fetch(`${API_BASE}/api/history`, {
-          headers: { 
-            'Authorization': `Bearer ${token}`,
-            'bypass-tunnel-reminder': 'true' 
-          },
-        });
-        
-        if (!res.ok) {
-          if (res.status === 401 || res.status === 403) {
+        // 1. XỬ LÝ DỮ LIỆU PROFILE (DAILY GOAL)
+        if (profileRes.ok) {
+          const profileData = await profileRes.json();
+          if (profileData && profileData.daily_goal) {
+            setGoalMl(profileData.daily_goal);
+          }
+        } else {
+          console.error("Không lấy được mục tiêu nước từ profile");
+        }
+
+        // 2. XỬ LÝ DỮ LIỆU LỊCH SỬ CHECK-IN
+        if (!historyRes.ok) {
+          if (historyRes.status === 401 || historyRes.status === 403) {
             onLogout();
             return;
           }
-          throw new Error('Server không phản hồi.');
+          throw new Error('Server không phản hồi lịch sử.');
         }
         
-        const data = await res.json();
-        setHistory(data.map(item => {
+        const historyData = await historyRes.json();
+        setHistory(historyData.map(item => {
           const fixedTimestamp = item.timestamp.endsWith('Z') 
             ? item.timestamp 
             : `${item.timestamp}Z`;
@@ -101,7 +106,7 @@ export default function DashboardPage({ token, onLogout }) {
           };
         }));
         
-        const totalWater = data.reduce((sum, item) => sum + item.volume_ml, 0);
+        const totalWater = historyData.reduce((sum, item) => sum + item.volume_ml, 0);
         setCurrentWater(totalWater);
         
       } catch (err) {
