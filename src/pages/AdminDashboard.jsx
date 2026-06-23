@@ -22,15 +22,20 @@ export default function AdminDashboard({ token, onLogout }) {
 
   const BACKEND_URL = "https://binhhn21-water-check-in-backend.hf.space";
 
-  // 1. GỌI DỮ LIỆU TOÀN HỆ THỐNG THEO NGÀY CHỌN
-  const fetchByDate = () => {
-    setLoading(true); setError('');
+  // 1. GỌI DỮ LIỆU TOÀN HỆ THỐNG THEO NGÀY
+  // Thêm tham số isBackground để phân biệt tải lần đầu (hiện loading) và tải ngầm (không loading)
+  const fetchByDate = (isBackground = false) => {
+    if (!isBackground) { setLoading(true); setError(''); }
+    
     fetch(`${BACKEND_URL}/api/admin/checkins?date_str=${selectedDate}`, {
       headers: { 'Authorization': `Bearer ${token}` }
     })
       .then(res => res.json())
-      .then(data => { setDateData(data); setLoading(false); })
-      .catch(err => { setError("Lỗi khi tải dữ liệu ngày!"); setLoading(false); });
+      .then(data => { setDateData(data); if (!isBackground) setLoading(false); })
+      .catch(err => { 
+        if (!isBackground) setError("Lỗi khi tải dữ liệu ngày!"); 
+        if (!isBackground) setLoading(false); 
+      });
   };
 
   // 2. LẤY DANH SÁCH USER
@@ -44,8 +49,9 @@ export default function AdminDashboard({ token, onLogout }) {
   };
 
   // 3. LẤY HỒ SƠ TỔNG (STREAK) CỦA 1 USER
-  const fetchUserRecord = (targetUsername) => {
-    setLoading(true); setError(''); 
+  const fetchUserRecord = (targetUsername, isBackground = false) => {
+    if (!isBackground) { setLoading(true); setError(''); }
+    
     fetch(`${BACKEND_URL}/api/admin/user-details?username=${targetUsername}`, {
       headers: { 'Authorization': `Bearer ${token}` }
     })
@@ -53,15 +59,39 @@ export default function AdminDashboard({ token, onLogout }) {
         if (!res.ok) throw new Error('Không tìm thấy User này!');
         return res.json();
       })
-      .then(data => { setUserData(data); setLoading(false); })
-      .catch(err => { setError(err.message); setLoading(false); });
+      .then(data => { setUserData(data); if (!isBackground) setLoading(false); })
+      .catch(err => { 
+        if (!isBackground) setError(err.message); 
+        if (!isBackground) setLoading(false); 
+      });
   };
 
-  // Auto-fetch khi đổi ngày
+  // 👇 TÍNH NĂNG ĐẮT GIÁ: TỰ ĐỘNG REFRESH DỮ LIỆU MỖI 10 GIÂY
   useEffect(() => {
-    fetchByDate();
+    // Gọi lần đầu tiên khi đổi ngày
+    fetchByDate(false); 
+
+    // Cài đặt đồng hồ tự động load ngầm (10 giây / lần)
+    const intervalDate = setInterval(() => {
+      fetchByDate(true); 
+    }, 10000);
+
+    // Dọn dẹp đồng hồ cũ nếu sếp đổi ngày khác
+    return () => clearInterval(intervalDate);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedDate]);
+
+  // 👇 TỰ ĐỘNG REFRESH CẢ THÔNG TIN STREAK NẾU ĐANG BẬT TAB 1 USER CỤ THỂ
+  useEffect(() => {
+    if (!selectedUser) return;
+
+    const intervalUser = setInterval(() => {
+      fetchUserRecord(selectedUser, true);
+    }, 10000);
+
+    return () => clearInterval(intervalUser);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedUser]);
 
   // Fetch danh sách User khi vào tab User
   useEffect(() => {
@@ -69,10 +99,10 @@ export default function AdminDashboard({ token, onLogout }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [viewMode]);
 
-  // 👇 ĐÃ SỬA: XÓA LỖI & RESET STATE KHI CHUYỂN TAB ĐỂ "CÁI GÌ RA CÁI NẤY"
+  // Xử lý chuyển tab
   const handleTabChange = (mode) => {
     setViewMode(mode);
-    setError(''); // Xóa ngay dòng báo lỗi (nếu có)
+    setError(''); 
     
     if (mode === 'user') {
       setSelectedUser(null);
@@ -84,7 +114,6 @@ export default function AdminDashboard({ token, onLogout }) {
   // TÍNH TOÁN DỮ LIỆU
   const totalWaterInDay = dateData?.data?.reduce((sum, item) => sum + item.volume_ml, 0) || 0;
   
-  // Lọc lấy danh sách ảnh của RIÊNG User đang chọn
   const userLogsOnDate = dateData?.data?.filter(item => item.username === selectedUser) || [];
   const userWaterOnDate = userLogsOnDate.reduce((sum, item) => sum + item.volume_ml, 0);
 
@@ -168,7 +197,6 @@ export default function AdminDashboard({ token, onLogout }) {
           {viewMode === 'user' && (
             <div className="admin-section">
               
-              {/* NẾU CHƯA CHỌN AI -> HIỆN DANH SÁCH LƯỚI ĐỂ CHỌN */}
               {!selectedUser && (
                 <>
                   <div className="admin-filter-bar">
@@ -206,7 +234,6 @@ export default function AdminDashboard({ token, onLogout }) {
                 </>
               )}
 
-              {/* NẾU ĐÃ CHỌN 1 USER -> CHỈ HIỆN DỮ LIỆU CỦA USER ĐÓ */}
               {selectedUser && userData && (
                 <>
                   <button className="admin-back-btn" onClick={() => {
