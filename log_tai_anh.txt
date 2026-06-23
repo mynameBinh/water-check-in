@@ -1,1 +1,6 @@
 zsh: command not found: 0
+🚀 Bắt đầu quét ảnh trên mây...
+📥 Đang tải ảnh: user_1_1782140380.jpg vào 2026-06-22...
+🔗 Đang dò link: https://binhhn21-water-check-in-backend.hf.space/uploads/user_1_1782140380.jpg
+   ✅ Tải thành công!
+✅ Đã kiểm tra và đồng bộ xong toàn bộ ảnh!

@@ -7,6 +7,10 @@ export default function CameraPreviewComponent({ capturedImage, aiStatus, onCapt
   const fileRef     = useRef(null);
   const [camError,  setCamError]  = useState(null);
   const [videoReady, setVideoReady] = useState(false);
+  
+  // ⚡ MẸO THÊM: Quản lý trạng thái đèn Flash
+  const [hasFlash, setHasFlash] = useState(false); // Thiết bị có hỗ trợ Flash không
+  const [isFlashOn, setIsFlashOn] = useState(false); // Trạng thái bật/tắt hiện tại
 
   /* Start camera when panel opens and no image is captured yet */
   useEffect(() => {
@@ -22,6 +26,17 @@ export default function CameraPreviewComponent({ capturedImage, aiStatus, onCapt
         if (!active) { stream.getTracks().forEach(t => t.stop()); return; }
         streamRef.current = stream;
         if (videoRef.current) videoRef.current.srcObject = stream;
+
+        // 🔍 KIỂM TRA XEM CAMERA CÓ ĐÈN FLASH KHÔNG
+        const track = stream.getVideoTracks()[0];
+        if (track && typeof track.getCapabilities === 'function') {
+          const capabilities = track.getCapabilities();
+          // Nếu trình duyệt báo có tính năng 'torch' (đèn pin/flash)
+          if (capabilities && 'torch' in capabilities) {
+            setHasFlash(true);
+          }
+        }
+
       } catch (err) {
         if (active) setCamError(err.message || 'Không truy cập được camera');
       }
@@ -34,12 +49,32 @@ export default function CameraPreviewComponent({ capturedImage, aiStatus, onCapt
       streamRef.current?.getTracks().forEach(t => t.stop());
       streamRef.current = null;
       setVideoReady(false);
+      setHasFlash(false);
+      setIsFlashOn(false);
     };
   }, [capturedImage]);
 
   const stopStream = () => {
     streamRef.current?.getTracks().forEach(t => t.stop());
     streamRef.current = null;
+    setIsFlashOn(false);
+  };
+
+  // ⚡ HÀM BẬT / TẮT FLASH
+  const toggleFlash = async () => {
+    const track = streamRef.current?.getVideoTracks()[0];
+    if (!track || !hasFlash) return;
+
+    try {
+      const nextFlashState = !isFlashOn;
+      // Ép camera áp dụng cấu hình bật/tắt đèn torch
+      await track.applyConstraints({
+        advanced: [{ torch: nextFlashState }]
+      });
+      setIsFlashOn(nextFlashState);
+    } catch (err) {
+      console.error("Không thể điều khiển đèn Flash:", err);
+    }
   };
 
   const handleCapture = () => {
@@ -93,6 +128,18 @@ export default function CameraPreviewComponent({ capturedImage, aiStatus, onCapt
                   onCanPlay={() => setVideoReady(true)}
                   className={`cam-video${videoReady ? ' cam-video--ready' : ''}`}
                 />
+
+                {/* ⚡ NÚT BẬT/TẮT FLASH (Chỉ hiện khi camera đã sẵn sàng và thiết bị CÓ flash) */}
+                {videoReady && hasFlash && (
+                  <button 
+                    className={`flash-btn ${isFlashOn ? 'flash-btn--on' : ''}`} 
+                    onClick={toggleFlash}
+                    aria-label="Bật tắt đèn Flash"
+                  >
+                    {isFlashOn ? '⚡ Flash: ON' : '💡 Flash: OFF'}
+                  </button>
+                )}
+
                 {videoReady && (
                   <button className="shutter-btn" onClick={handleCapture} aria-label="Chụp ảnh">
                     <span className="shutter-inner" />

@@ -198,6 +198,38 @@
   border-width: 4px;
 }
 
+/* Định vị nút flash nằm ở góc trên cùng bên phải của khung camera */
+.flash-btn {
+  position: absolute;
+  top: 15px;
+  right: 15px;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  padding: 8px 14px;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: bold;
+  cursor: pointer;
+  z-index: 10;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+/* Khi Flash đang bật thì đổi màu nút cho rực rỡ */
+.flash-btn--on {
+  background: #f1c40f;
+  color: #000;
+  border-color: #f39c12;
+  box-shadow: 0 0 10px rgba(241, 196, 15, 0.5);
+}
+
+.flash-btn:active {
+  transform: scale(0.95);
+}
+
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
