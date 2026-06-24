@@ -60,7 +60,7 @@ export default function DashboardPage({ token, onLogout }) {
     const fetchData = async () => {
       try {
         const [profileRes, historyRes] = await Promise.all([
-          fetch(`${API_BASE}/api/profile`, {
+          fetch(`${API_BASE}/api/me`, {
             headers: { 'Authorization': `Bearer ${token}` }
           }),
           fetch(`${API_BASE}/api/history`, {
