@@ -85,10 +85,11 @@ export default function HeaderComponent({ currentWater, goalMl }) {
     }
   };
 
-  useEffect(() => {
+ useEffect(() => {
     try {
       const token = localStorage.getItem('token'); 
       if (token) {
+        // 1. Lấy tên User
         const payload = JSON.parse(atob(token.split('.')[1]));
         if (payload && payload.sub) {
           setUserName(payload.sub);
@@ -96,6 +97,7 @@ export default function HeaderComponent({ currentWater, goalMl }) {
 
         const BACKEND_URL = "https://binhhn21-water-check-in-backend.hf.space";
 
+        // 2. Gọi API lấy Streak
         fetch(`${BACKEND_URL}/api/streak`, {
           headers: { 'Authorization': `Bearer ${token}` }
         })
@@ -104,10 +106,19 @@ export default function HeaderComponent({ currentWater, goalMl }) {
           if (data && typeof data.streak === 'number') {
             setStreak(data.streak);
             
-            // 👇 KIỂM TRA CỘT MỐC: Nếu chạm đúng mốc 10, 50, 100, 200
-            if ([10, 50, 100, 200].includes(data.streak)) {
+            // 👇 KIỂM TRA CỘT MỐC THÔNG MINH
+            const targetMilestones = [10, 50, 100, 200];
+            const currentStreak = data.streak;
+            
+            // Lấy mốc streak đã từng chúc mừng từ bộ nhớ máy ra kiểm tra
+            const lastCelebrated = Number(localStorage.getItem('celebrated_streak')) || 0;
+
+            if (targetMilestones.includes(currentStreak) && currentStreak !== lastCelebrated) {
               setShowCelebration(true); // Bật banner chúc mừng
               fireConfetti();           // Bắn pháo hoa tung tóe
+              
+              // 📌 Ghi nhớ lại mốc này để các lần check-in sau trong cùng ngày không bị nổ pháo hoa nữa
+              localStorage.setItem('celebrated_streak', currentStreak);
             }
           }
         })

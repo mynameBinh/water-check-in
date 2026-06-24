@@ -2,7 +2,6 @@ import React, { useState, useEffect, useCallback } from 'react';
 import waterLogo from '../assets/water.svg';
 import './AdminDashboard.css';
 
-// 👇 FIX 1: Hàm lấy chính xác ngày hiện tại theo đúng múi giờ máy tính của sếp (Local Time)
 const getLocalDateString = () => {
   const tzOffset = new Date().getTimezoneOffset() * 60000;
   return new Date(Date.now() - tzOffset).toISOString().split('T')[0];
@@ -10,34 +9,30 @@ const getLocalDateString = () => {
 
 export default function AdminDashboard({ token, onLogout }) {
   const todayStr = getLocalDateString();
-  
   const [viewMode, setViewMode] = useState('date');
 
-  // Trạng thái ngày (dùng chung cho cả 2 tab)
   const [selectedDate, setSelectedDate] = useState(todayStr);
   const [dateData, setDateData] = useState(null);
 
-  // Trạng thái cho tab User
   const [searchUserQuery, setSearchUserQuery] = useState('');
   const [userList, setUserList] = useState([]); 
   const [selectedUser, setSelectedUser] = useState(null); 
   const [userData, setUserData] = useState(null); 
 
-  // Trạng thái chỉnh sửa Goal
   const [editingGoal, setEditingGoal] = useState('');
   const [isUpdatingGoal, setIsUpdatingGoal] = useState(false);
-  const [lastSyncedUser, setLastSyncedUser] = useState('');
 
+  const [editingTier, setEditingTier] = useState('');
+  const [isUpdatingTier, setIsUpdatingTier] = useState(false);
+
+  const [lastSyncedUser, setLastSyncedUser] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
   const BACKEND_URL = "https://binhhn21-water-check-in-backend.hf.space";
 
-  // 👇 FIX 2: Bọc useCallback để React hiểu đúng ngày truyền vào, không bị kẹt ngày cũ
-  // 1. GỌI DỮ LIỆU TOÀN HỆ THỐNG THEO NGÀY
   const fetchByDate = useCallback((dateStr, isBackground = false) => {
     if (!isBackground) { setLoading(true); setError(''); }
-    
     fetch(`${BACKEND_URL}/api/admin/checkins?date_str=${dateStr}`, {
       headers: { 'Authorization': `Bearer ${token}` }
     })
@@ -49,7 +44,6 @@ export default function AdminDashboard({ token, onLogout }) {
       });
   }, [token]);
 
-  // 2. LẤY DANH SÁCH USER
   const fetchAllUsers = useCallback(() => {
     fetch(`${BACKEND_URL}/api/admin/users`, {
       headers: { 'Authorization': `Bearer ${token}` }
@@ -59,10 +53,8 @@ export default function AdminDashboard({ token, onLogout }) {
       .catch(err => console.error("Lỗi tải danh sách User:", err));
   }, [token]);
 
-  // 3. LẤY HỒ SƠ TỔNG (STREAK & GOAL) CỦA 1 USER
   const fetchUserRecord = useCallback((targetUsername, isBackground = false) => {
     if (!isBackground) { setLoading(true); setError(''); }
-    
     fetch(`${BACKEND_URL}/api/admin/user-details?username=${targetUsername}`, {
       headers: { 'Authorization': `Bearer ${token}` }
     })
@@ -77,20 +69,18 @@ export default function AdminDashboard({ token, onLogout }) {
       });
   }, [token]);
 
-  // TỰ ĐỘNG ĐỒNG BỘ GOAL
   useEffect(() => {
     if (userData && userData.username !== lastSyncedUser) {
       const currentGoal = userData.daily_goal !== undefined ? userData.daily_goal : 1000;
       setEditingGoal(currentGoal);
+      setEditingTier(userData.tier || 'Thành viên'); 
       setLastSyncedUser(userData.username);
     }
   }, [userData, lastSyncedUser]);
 
-  // GỬI YÊU CẦU ĐỔI KPI LÊN BACKEND
   const handleUpdateGoal = () => {
     if (!userData) return;
     setIsUpdatingGoal(true);
-
     fetch(`${BACKEND_URL}/api/admin/users/${userData.username}/goal`, {
       method: 'PUT',
       headers: { 
@@ -114,39 +104,51 @@ export default function AdminDashboard({ token, onLogout }) {
       });
   };
 
-  // 👇 FIX 3: Luôn lấy `selectedDate` mới nhất đẩy vào interval 10s
-  // TỰ ĐỘNG REFRESH DỮ LIỆU THEO NGÀY
+  const handleUpdateTier = () => {
+    if (!userData) return;
+    setIsUpdatingTier(true);
+    fetch(`${BACKEND_URL}/api/admin/users/${userData.username}/tier`, {
+      method: 'PUT',
+      headers: { 
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ tier: editingTier })
+    })
+      .then(res => {
+        if (!res.ok) throw new Error('Không thể cập nhật danh hiệu!');
+        return res.json();
+      })
+      .then(() => {
+        setUserData(prev => ({ ...prev, tier: editingTier }));
+        setIsUpdatingTier(false);
+        alert(`✅ Đã phong tước hiệu "${editingTier}" cho @${userData.username} thành công!`);
+      })
+      .catch(err => {
+        alert(`❌ Thất bại: ${err.message}`);
+        setIsUpdatingTier(false);
+      });
+  };
+
   useEffect(() => {
     fetchByDate(selectedDate, false); 
-
-    const intervalDate = setInterval(() => {
-      fetchByDate(selectedDate, true); 
-    }, 10000);
-
+    const intervalDate = setInterval(() => { fetchByDate(selectedDate, true); }, 10000);
     return () => clearInterval(intervalDate);
   }, [selectedDate, fetchByDate]);
 
-  // TỰ ĐỘNG REFRESH THÔNG TIN USER
   useEffect(() => {
     if (!selectedUser) return;
-
-    const intervalUser = setInterval(() => {
-      fetchUserRecord(selectedUser, true);
-    }, 10000);
-
+    const intervalUser = setInterval(() => { fetchUserRecord(selectedUser, true); }, 10000);
     return () => clearInterval(intervalUser);
   }, [selectedUser, fetchUserRecord]);
 
-  // Fetch danh sách User khi vào tab User
   useEffect(() => {
     if (viewMode === 'user' && userList.length === 0) fetchAllUsers();
   }, [viewMode, userList.length, fetchAllUsers]);
 
-  // Xử lý chuyển tab
   const handleTabChange = (mode) => {
     setViewMode(mode);
     setError(''); 
-    
     if (mode === 'user') {
       setSelectedUser(null);
       setUserData(null);
@@ -155,9 +157,7 @@ export default function AdminDashboard({ token, onLogout }) {
     }
   };
 
-  // TÍNH TOÁN DỮ LIỆU
   const totalWaterInDay = dateData?.data?.reduce((sum, item) => sum + item.volume_ml, 0) || 0;
-  
   const userLogsOnDate = dateData?.data?.filter(item => item.username === selectedUser) || [];
   const userWaterOnDate = userLogsOnDate.reduce((sum, item) => sum + item.volume_ml, 0);
 
@@ -171,17 +171,11 @@ export default function AdminDashboard({ token, onLogout }) {
 
       <div className="dashboard-inner admin-inner">
         <div className="admin-tabs">
-          <button className={`admin-tab-btn ${viewMode === 'date' ? 'active' : ''}`} onClick={() => handleTabChange('date')}>
-            🗓️ Theo ngày
-          </button>
-          <button className={`admin-tab-btn ${viewMode === 'user' ? 'active' : ''}`} onClick={() => handleTabChange('user')}>
-            👤 User
-          </button>
+          <button className={`admin-tab-btn ${viewMode === 'date' ? 'active' : ''}`} onClick={() => handleTabChange('date')}>🗓️ Theo ngày</button>
+          <button className={`admin-tab-btn ${viewMode === 'user' ? 'active' : ''}`} onClick={() => handleTabChange('user')}>👤 User</button>
         </div>
 
         <main className="dashboard-main">
-          
-          {/* TAB 1: HIỂN THỊ TẤT CẢ CHECK-IN */}
           {viewMode === 'date' && (
             <div className="admin-section">
               <div className="admin-filter-bar">
@@ -233,19 +227,15 @@ export default function AdminDashboard({ token, onLogout }) {
             </div>
           )}
 
-          {/* TAB 2: QUẢN LÝ RIÊNG LẺ TỪNG USER */}
           {viewMode === 'user' && (
             <div className="admin-section">
-              
               {!selectedUser && (
                 <>
                   <div className="admin-filter-bar">
                     <span className="admin-filter-label">🔍</span>
                     <input 
-                      type="text" 
-                      placeholder="Tìm kiếm User..." 
-                      value={searchUserQuery} 
-                      onChange={(e) => setSearchUserQuery(e.target.value)}
+                      type="text" placeholder="Tìm kiếm User..." 
+                      value={searchUserQuery} onChange={(e) => setSearchUserQuery(e.target.value)}
                       className="admin-search-input"
                     />
                   </div>
@@ -258,12 +248,8 @@ export default function AdminDashboard({ token, onLogout }) {
                         .filter(u => u.username.toLowerCase().includes(searchUserQuery.toLowerCase()))
                         .map(u => (
                           <div 
-                            key={u.username} 
-                            className="admin-user-select-card"
-                            onClick={() => {
-                              setSelectedUser(u.username);
-                              fetchUserRecord(u.username);
-                            }}
+                            key={u.username} className="admin-user-select-card"
+                            onClick={() => { setSelectedUser(u.username); fetchUserRecord(u.username); }}
                           >
                             <div className="user-icon">{u.role === 'admin' ? '👑' : '👤'}</div>
                             <div className="user-name">@{u.username}</div>
@@ -274,23 +260,17 @@ export default function AdminDashboard({ token, onLogout }) {
                 </>
               )}
 
-              {/* 👇 ĐÃ SỬA: Bỏ điều kiện "&& userData" để Nút Quay lại luôn hiện ra kể cả khi chưa có data */}
               {selectedUser && (
                 <>
                   <button className="admin-back-btn" onClick={() => {
-                    setSelectedUser(null);
-                    setUserData(null);
-                    setError('');
-                    setLastSyncedUser('');
+                    setSelectedUser(null); setUserData(null); setError(''); setLastSyncedUser('');
                   }}>
                     ⬅ Quay lại danh sách User
                   </button>
 
-                  {/* Hiển thị lỗi hoặc trạng thái đang tải */}
                   {error && <div className="admin-status-text error">❌ {error}</div>}
                   {!userData && !error && <div className="admin-status-text">🔄 Đang tải dữ liệu của @{selectedUser}...</div>}
 
-                  {/* Chỉ render phần hồ sơ khi userData đã tải xong */}
                   {userData && (
                     <>
                       <div className="admin-profile-card">
@@ -300,36 +280,36 @@ export default function AdminDashboard({ token, onLogout }) {
                           <div className="admin-p-stat"><span>💧 Tổng nước (All):</span> <strong>{userData.total_volume} ml</strong></div>
                         </div>
 
+                        {/* Tùy chỉnh KPI */}
                         <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
                           <span style={{ fontSize: '14px', color: '#94a3b8', fontWeight: '600' }}>🎯 KPI Nước:</span>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <input 
-                              type="number" 
-                              value={editingGoal} 
-                              onChange={(e) => setEditingGoal(e.target.value)}
-                              className='updateInput'
-                            />
+                            <input type="number" value={editingGoal} onChange={(e) => setEditingGoal(e.target.value)} className='updateInput' />
                             <span style={{ fontSize: '14px', color: '#fff' }}>ml</span>
                           </div>
-                          <button 
-                            type="button"
-                            onClick={handleUpdateGoal}
-                            disabled={isUpdatingGoal}
-                            className='updateBtn'
-                          >
+                          <button type="button" onClick={handleUpdateGoal} disabled={isUpdatingGoal} className='updateBtn'>
                             {isUpdatingGoal ? 'Đang lưu...' : 'Cập nhật'}
+                          </button>
+                        </div>
+
+                        {/* Tùy chỉnh Tier */}
+                        <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                          <span style={{ fontSize: '14px', color: '#94a3b8', fontWeight: '600' }}>👑 Danh hiệu:</span>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flex: 1 }}>
+                            <input 
+                              type="text" value={editingTier} onChange={(e) => setEditingTier(e.target.value)}
+                              className='updateInput' style={{ width: '100%', minWidth: '150px' }} placeholder="Vd: Thành viên VIP..."
+                            />
+                          </div>
+                          <button type="button" onClick={handleUpdateTier} disabled={isUpdatingTier} className='updateBtn'>
+                            {isUpdatingTier ? 'Đang lưu...' : 'Cập nhật'}
                           </button>
                         </div>
                       </div>
 
                       <div className="admin-filter-bar" style={{ marginTop: '16px' }}>
                         <span className="admin-filter-label">Theo dõi ảnh ngày:</span>
-                        <input 
-                          type="date" 
-                          value={selectedDate} 
-                          onChange={(e) => setSelectedDate(e.target.value)} 
-                          className="admin-date-input"
-                        />
+                        <input type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} className="admin-date-input" />
                       </div>
 
                       <div className="admin-log-container">

@@ -26,5 +26,3 @@ dist-ssr
 tool_tai_anh.py
 log_tai_anh.txt
 backend/
-
-.env

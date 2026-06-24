@@ -357,6 +357,7 @@ input[type=number]::-webkit-inner-spin-button {
   margin: 0;
 }
 
+/* Input chung hỗ trợ cho cả number và text (tier) */
 .updateInput {
     padding: 10px 15px;
     border-radius: 12px;
@@ -364,8 +365,11 @@ input[type=number]::-webkit-inner-spin-button {
     background-color: #f1f6f9;
     box-shadow: 0 4px 5px rgba(0, 0, 0, 0.1);
     transition: all 0.1s ease-in;
+    font-family: inherit;
+    font-size: 14px;
 }
 .updateInput:focus {
-    scale: calc(0.95);
+    scale: calc(0.98); /* Chỉnh nhẹ lại cho text box đỡ giật */
     background-color: #edf1df;
+    outline: none;
 }
