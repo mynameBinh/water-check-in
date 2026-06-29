@@ -3,18 +3,16 @@ on: [push, workflow_dispatch]
 
 jobs:
   build:
-    runs-on: macos-14 # Chuyển về macos-14 để dứt điểm lỗi hệ thống đóng gói của bản 15
+    runs-on: macos-14
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Ép cài Xcode 16.1 trên nền macos-14 để thỏa mãn yêu cầu tối thiểu của React Native
       - name: Set up Xcode version
         uses: maxim-lobanov/setup-xcode@v1
         with:
           xcode-version: '16.1'
 
-      # Lệnh mấu chốt: Khởi tạo và kích hoạt bộ đệm thiết bị của Apple để tránh lỗi "Platform Not Installed"
       - name: Initialize Apple CoreSimulator Service
         run: |
           xcrun simctl list runtimes
@@ -38,17 +36,17 @@ jobs:
             npm install
           fi
 
-      # Đảm bảo gỡ bỏ hoàn toàn gói expo-ui xung đột
-      - name: Force Remove Broken Expo UI Package
+      # Ép gỡ bỏ gói cũ để tránh lỗi "unknown option --fix"
+      - name: Clean Legacy Expo CLI
         run: |
-          npm uninstall expo-ui @expo/ui || true
-          yarn remove expo-ui @expo/ui || true
+          npm uninstall -g expo-cli || true
+          npm uninstall expo-cli @expo/ui expo-ui || true
+          yarn remove expo-cli @expo/ui expo-ui || true
 
-      - name: Setup Expo CLI
-        run: npm install -g expo-cli
-
-      - name: Fix Expo Dependencies Mismatch
-        run: npx expo install --fix
+      # Dùng lệnh kiểm tra & tự động sửa dependencies thế hệ mới (Không lỗi option)
+      - name: Check and Fix Expo Dependencies
+        run: |
+          echo "y" | npx expo install --check
 
       - name: Setup Ruby and Cocoapods Cache
         uses: ruby/setup-ruby@v1
@@ -66,7 +64,6 @@ jobs:
       - name: Build Expo iOS JS Bundle
         run: npx expo export --platform ios
 
-      # Đồng bộ cấu hình dự án về iOS 17.0 để máy ảo Mac arm64 đóng gói trơn tru nhất
       - name: Modify Deployment Target in Xcode Project File
         run: |
           sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = 18.1;/IPHONEOS_DEPLOYMENT_TARGET = 17.0;/g' ios/*.xcodeproj/project.pbxproj || true
