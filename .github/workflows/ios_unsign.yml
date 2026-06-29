@@ -36,14 +36,23 @@ jobs:
             npm install
           fi
 
-      # Ép gỡ bỏ gói cũ để tránh lỗi "unknown option --fix"
-      - name: Clean Legacy Expo CLI
+      # BẢO HIỂM HỆ THỐNG: Ép cài lại gói expo lõi để máy ảo không bao giờ báo thiếu module
+      - name: Ensure Core Expo Module Installed
+        run: |
+          if [ -f "yarn.lock" ]; then
+            yarn add expo
+          else
+            npm install expo
+          fi
+
+      # Ép gỡ bỏ gói expo-cli cũ gây xung đột và các gói expo-ui lỗi Swift
+      - name: Clean Legacy Packages
         run: |
           npm uninstall -g expo-cli || true
-          npm uninstall expo-cli @expo/ui expo-ui || true
-          yarn remove expo-cli @expo/ui expo-ui || true
+          npm uninstall @expo/ui expo-ui || true
+          yarn remove @expo/ui expo-ui || true
 
-      # Dùng lệnh kiểm tra & tự động sửa dependencies thế hệ mới (Không lỗi option)
+      # Chạy kiểm tra & tự động sửa dependencies thế hệ mới
       - name: Check and Fix Expo Dependencies
         run: |
           echo "y" | npx expo install --check
