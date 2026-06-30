@@ -26,6 +26,11 @@
   border: 1.5px solid #FCA5A5;
 }
 
+.toast--info {
+  background: var(--c-primary-pale, #E0F2FE);
+  border: 1.5px solid var(--c-primary-dim, #7DD3FC);
+}
+
 /* ---- Body ---- */
 .toast-body {
   display: flex;
@@ -51,6 +56,21 @@
   margin-top: 2px;
 }
 
+.toast-close {
+  background: none;
+  border: none;
+  color: var(--c-text-muted);
+  font-size: 13px;
+  cursor: pointer;
+  padding: 4px;
+  line-height: 1;
+  flex-shrink: 0;
+  align-self: flex-start;
+  opacity: 0.6;
+  transition: opacity 0.15s;
+}
+.toast-close:hover { opacity: 1; }
+
 /* ---- Progress bar ---- */
 .toast-bar-track {
   height: 4px;
@@ -59,6 +79,7 @@
 
 .toast--success .toast-bar { background: var(--c-success); }
 .toast--error   .toast-bar { background: var(--c-error);   }
+.toast--info    .toast-bar { background: var(--c-primary, #0EA5E9); }
 
 .toast-bar {
   height: 100%;

@@ -203,9 +203,9 @@
   position: absolute;
   top: 15px;
   right: 15px;
-  background: rgb(225, 224, 217);
+  background: rgba(12, 30, 42, 0.55);
   color: #fff;
-  border: 1px solid rgba(255, 255, 255, 0.4);
+  border: 1.5px solid rgba(255, 255, 255, 0.4);
   padding: 8px 14px;
   border-radius: 30px;
   font-size: 14px;
@@ -216,14 +216,15 @@
   display: flex;
   align-items: center;
   gap: 5px;
+  backdrop-filter: blur(4px);
 }
 
 /* Khi Flash đang bật thì đổi màu nút cho rực rỡ */
 .flash-btn--on {
-  background: #eee8ce;
-  color: #000;
-  border-color: #f8c97d;
-  box-shadow: 0 0 10px rgba(241, 196, 15, 0.5);
+  background: #FBBF24;
+  color: #1a1a1a;
+  border-color: #F8C97D;
+  box-shadow: 0 0 12px rgba(251, 191, 36, 0.55);
 }
 
 .flash-btn:active {
@@ -232,6 +233,12 @@
 
 .flash-icon{
   width: 15px;
+  /* Icon SVG/PNG gốc thường có nét đen mảnh, đảo màu để nổi rõ trên nền nút trong/tối */
+  filter: brightness(0) invert(1);
+}
+
+.flash-btn--on .flash-icon {
+  filter: none;
 }
 
 @keyframes spin {

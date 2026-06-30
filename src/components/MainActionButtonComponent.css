@@ -3,7 +3,7 @@
   flex-direction: column;
   align-items: center;
   gap: 14px;
-  padding: 8px 0;
+  padding: 20px 0;
 }
 
 /* ---- Circular button ---- */
@@ -36,6 +36,14 @@
 .main-action-btn--active {
   background: linear-gradient(145deg, #A5F3FC, #38BDF8);
 }
+
+.main-action-btn--disabled {
+  background: linear-gradient(145deg, #CBD5E1, #94A3B8);
+  cursor: not-allowed;
+  box-shadow: none;
+}
+.main-action-btn--disabled:hover { transform: none; box-shadow: none; }
+.main-action-btn--disabled:active { transform: none; }
 
 /* ---- Pulse rings ---- */
 .main-action-pulse {

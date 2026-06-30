@@ -1,375 +1,157 @@
-/* Tái sử dụng form container cho Admin để đồng nhất */
-.admin-inner {
-  margin-top: 16px;
-  max-width: 600px; /* Admin dashboard rộng hơn chút để dễ nhìn ảnh */
+/* ── Reset & tokens ───────────────────────────────────────────── */
+:root {
+  --c-bg:           #f0f9ff;
+  --c-surface:      #ffffff;
+  --c-border:       #e2e8f0;
+  --c-primary:      #0ea5e9;
+  --c-primary-dark: #0284c7;
+  --c-primary-pale: #e0f2fe;
+  --c-primary-dim:  #bae6fd;
+  --c-text-h:       #0f172a;
+  --c-text-p:       #334155;
+  --c-text-muted:   #64748b;
+  --c-success:      #10b981;
+  --c-success-bg:   #dcfce7;
+  --c-success-dark: #065f46;
+  --c-error:        #ef4444;
+  --c-error-bg:     #fee2e2;
+  --c-error-dark:   #991b1b;
+  --c-warning:      #f59e0b;
+  --r-sm:  8px;
+  --r-md:  12px;
+  --r-lg:  20px;
+  --r-xl:  28px;
+  --r-full: 9999px;
+  --shadow-card: 0 2px 12px rgba(14,165,233,0.08);
+  --shadow-btn:  0 8px 24px rgba(14,165,233,0.35);
+  --nav-h: 72px;
 }
 
-/* --- TABS --- */
-.admin-tabs {
-  display: flex;
-  background: var(--c-surface, #1e293b);
-  border-radius: var(--r-md, 16px);
-  padding: 6px;
-  gap: 6px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: var(--c-bg);
+  color: var(--c-text-p);
+  -webkit-font-smoothing: antialiased;
 }
 
-.admin-tab-btn {
-  flex: 1;
-  background: transparent;
-  color: var(--c-text-p, #94a3b8);
-  border: none;
-  padding: 12px;
-  border-radius: var(--r-sm, 12px);
-  font-weight: 600;
-  font-size: 15px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.admin-tab-btn.active {
-  background: var(--c-bg, #0f172a);
-  color: var(--c-primary, #38bdf8);
-  box-shadow: inset 0 0 0 1px rgba(56, 189, 248, 0.2);
-}
-
-/* --- KHU VỰC CHUNG --- */
-.admin-section {
+/* ── Layout shell ─────────────────────────────────────────────── */
+.dashboard {
+  min-height: 100dvh;
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  animation: fadeIn 0.3s ease-in-out;
+  margin: 0 auto;
+  background: var(--c-bg);
+  position: relative;
 }
 
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(5px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-.admin-section-title {
-  font-size: 16px;
-  font-weight: 700;
-  color: var(--c-text-h, #f8fafc);
-  margin-bottom: 12px;
-}
-
-/* --- FILTER & BỘ TÌM KIẾM --- */
-.admin-filter-bar, .admin-search-form {
+/* ── Top bar ──────────────────────────────────────────────────── */
+.top-bar {
+  position: sticky;
+  top: 0;
+  z-index: 50;
   display: flex;
   align-items: center;
   gap: 10px;
-  background: var(--c-surface, #1e293b);
-  padding: 12px 16px;
-  border-radius: var(--r-md, 16px);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+  padding: 12px 20px;
+  background: var(--c-surface);
+  border-bottom: 1px solid var(--c-border);
+  box-shadow: 0 1px 6px rgba(14,165,233,0.08);
 }
 
-.admin-filter-label {
-  color: var(--c-text-p, #94a3b8);
-  font-weight: 500;
-  font-size: 14px;
-}
+.top-bar-logo { font-size: 24px; }
 
-.admin-date-input, .admin-search-input {
+.top-bar-title {
   flex: 1;
-  background: var(--c-bg, #0f172a);
-  color: var(--c-text-h, #f8fafc);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  padding: 10px 14px;
-  border-radius: 10px;
-  font-size: 14px;
-  outline: none;
-  font-family: inherit;
-  transition: border-color 0.2s;
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--c-text-h);
+  letter-spacing: -0.3px;
 }
 
-.admin-date-input:focus, .admin-search-input:focus {
-  border-color: var(--c-primary, #38bdf8);
-}
-
-/* Fix icon lịch trên Chrome cho input date */
-::-webkit-calendar-picker-indicator {
-  filter: invert(1);
-  opacity: 0.6;
-  cursor: pointer;
-}
-
-.admin-search-btn {
-  background: var(--c-primary, #38bdf8);
-  color: var(--c-bg, #0f172a);
+.logout-btn {
+  background: none;
   border: none;
-  padding: 10px 20px;
-  border-radius: 10px;
-  font-weight: 700;
+  color: var(--c-primary-dark);
+  font-weight: 600;
+  font-size: 14px;
   cursor: pointer;
+  padding: 6px 12px;
+  border-radius: var(--r-full);
+  transition: background .15s;
+}
+.logout-btn:hover { background: var(--c-primary-pale); }
+
+/* ── Content area ─────────────────────────────────────────────── */
+.dashboard-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 16px calc(var(--nav-h) + 24px);
 }
 
-/* --- STATS GRID --- */
-.admin-stats-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-}
-
-.admin-stat-card {
-  background: var(--c-surface, #1e293b);
-  padding: 16px;
-  border-radius: var(--r-md, 16px);
-  text-align: center;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
-}
-
-.admin-stat-label {
-  font-size: 11px;
-  font-weight: 700;
-  color: var(--c-text-p, #94a3b8);
-  letter-spacing: 0.5px;
-  margin-bottom: 4px;
-}
-
-.admin-stat-value {
-  font-size: 24px;
-  font-weight: 800;
-}
-
-.text-blue { color: var(--c-primary, #38bdf8); }
-.text-green { color: var(--c-success, #10b981); }
-
-/* --- PROFILE CARD --- */
-.admin-profile-card {
-  background: var(--c-surface, #1e293b);
-  padding: 20px;
-  border-radius: var(--r-md, 16px);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
-  border: 1px solid rgba(56, 189, 248, 0.2);
-}
-
-.admin-profile-name {
-  color: var(--c-primary, #38bdf8);
-  font-size: 20px;
-  margin-bottom: 16px;
-}
-
-.admin-profile-stats {
+.home-tab {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  width: 400px;
+  gap: 4px;
 }
 
-.admin-p-stat {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  background: var(--c-bg, #0f172a);
-  padding: 12px 16px;
-  border-radius: 10px;
-  font-size: 14px;
-  color: var(--c-text-p, #94a3b8);
-}
-
-.admin-p-stat strong {
-  color: var(--c-text-h, #f8fafc);
-  font-size: 15px;
-}
-
-/* --- GRID CARDS (NHẬT KÝ) --- */
-.admin-log-container {
-  background: var(--c-surface, #1e293b);
-  padding: 16px;
-  border-radius: var(--r-md, 16px);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
-}
-
-.admin-grid-cards {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-  gap: 12px;
-}
-
-.admin-card {
-  background: var(--c-bg, #0f172a);
-  border-radius: 12px;
-  padding: 12px;
-  border: 1px solid rgba(255,255,255,0.05);
-}
-
-.admin-card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 4px;
-}
-
-.admin-user-name {
-  font-size: 14px;
-  font-weight: 700;
-  color: var(--c-text-h, #f8fafc);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.admin-volume-tag {
-  background: rgba(16, 185, 129, 0.15);
-  color: var(--c-success, #10b981);
-  font-size: 12px;
-  font-weight: 700;
-  padding: 2px 6px;
-  border-radius: 6px;
-}
-
-.admin-card-time {
-  font-size: 12px;
-  color: var(--c-text-p, #94a3b8);
-  margin-bottom: 10px;
-}
-
-.admin-image-box {
+/* ── Bottom navigation ────────────────────────────────────────── */
+.bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
   width: 100%;
-  aspect-ratio: 3/4;
-  background: rgba(0, 0, 0, 0.3);
-  border-radius: 8px;
-  overflow: hidden;
+  max-width: 480px;
   display: flex;
-  align-items: center;
   justify-content: center;
+  padding: 0 20px env(safe-area-inset-bottom, 12px);
+  padding-bottom: max(env(safe-area-inset-bottom, 12px), 12px);
+  background: transparent;
+  pointer-events: none;
+  z-index: 100;
 }
 
-.admin-image-box img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  transition: transform 0.2s;
+.bottom-nav-dock {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(255,255,255,0.95);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-radius: var(--r-full);
+  padding: 6px 10px;
+  box-shadow: 0 4px 24px rgba(14,165,233,0.14), 0 1px 4px rgba(0,0,0,0.06);
+  pointer-events: all;
 }
 
-.admin-image-box img:hover {
-  transform: scale(1.05);
-}
-
-.admin-no-img {
-  font-size: 12px;
-  color: #64748b;
-  text-align: center;
-}
-
-/* --- THÔNG BÁO --- */
-.admin-status-text {
-  text-align: center;
-  padding: 20px;
-  color: var(--c-primary, #38bdf8);
-  font-weight: 600;
-  font-size: 14px;
-}
-
-.admin-status-text.error {
-  color: #ef4444;
-}
-
-.admin-empty-state {
-  text-align: center;
-  padding: 30px 10px;
-  color: var(--c-text-p, #94a3b8);
-  font-size: 14px;
-  background: rgba(0,0,0,0.1);
-  border-radius: 12px;
-}
-
-/* --- BỔ SUNG: KHU VỰC MENU TÌM KIẾM THẢ XUỐNG --- */
-.admin-search-wrapper {
-  position: relative;
-  flex: 1; /* Để ô tìm kiếm dài ra chiếm hết chỗ trống */
-}
-
-.admin-back-btn {
-    padding: 12px 16px;
-    border-radius: var(--r-md, 16px);
-    background-color: #dff5fe;
-    border: none;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
-    transition: all 0.1s ease-in;
-}
-.admin-back-btn:hover {
-  transform: scale(1.05);
+.nav-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 8px 18px;
+  border: none;
+  background: none;
+  border-radius: var(--r-full);
   cursor: pointer;
+  transition: background .15s, transform .1s;
+  -webkit-tap-highlight-color: transparent;
 }
 
+.nav-item:active { transform: scale(0.93); }
 
-.admin-user-list-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-  gap: 12px;
-  margin-top: 8px;
-}
+.nav-item--active { background: var(--c-primary-pale); }
 
-.admin-user-select-card {
-  background: var(--c-surface, #1e293b);
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  border-radius: 12px;
-  padding: 20px 10px;
-  text-align: center;
-  cursor: pointer;
-  transition: transform 0.2s ease, border-color 0.2s ease, background-color 0.2s ease;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
-}
+.nav-item--gifts .nav-icon { filter: drop-shadow(0 0 4px #f43f5e88); }
 
-.admin-user-select-card:hover {
-  transform: translateY(-3px);
-  background-color: rgba(56, 189, 248, 0.05);
-  border-color: var(--c-primary, #38bdf8);
+.nav-icon  { font-size: 22px; line-height: 1; }
+.nav-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--c-text-muted);
+  letter-spacing: 0.2px;
 }
-
-.admin-user-select-card .user-icon {
-  font-size: 28px;
-  margin-bottom: 8px;
-}
-
-.admin-user-select-card .user-name {
-  color: var(--c-text-h, #f8fafc);
-  font-size: 14px;
-  font-weight: 600;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-
-
-.updateBtn {
-    padding: 10px 15px;
-    border-radius: 12px;
-    border: var(--c-surface);
-    background-color: #c1e9fa;
-    box-shadow: 0 4px 5px rgba(0, 0, 0, 0.1);
-    transition: all 0.1s ease-in;
-}
-.updateBtn:hover {
-    cursor: pointer;
-    scale: calc(1.05);
-}
-.updateBtn:active{
-    background-color: #dff5fe;
-}
-
-/* Ẩn mũi tên cho các trình duyệt Chrome, Safari, Edge, và Opera */
-input[type=number]::-webkit-outer-spin-button,
-input[type=number]::-webkit-inner-spin-button {
-  -webkit-appearance: none;
-  margin: 0;
-}
-
-/* Input chung hỗ trợ cho cả number và text (tier) */
-.updateInput {
-    padding: 10px 15px;
-    border-radius: 12px;
-    border: 1px solid #c1e9fa;
-    background-color: #f1f6f9;
-    box-shadow: 0 4px 5px rgba(0, 0, 0, 0.1);
-    transition: all 0.1s ease-in;
-    font-family: inherit;
-    font-size: 14px;
-}
-.updateInput:focus {
-    scale: calc(0.98); /* Chỉnh nhẹ lại cho text box đỡ giật */
-    background-color: #edf1df;
-    outline: none;
-}
+.nav-item--active .nav-label { color: var(--c-primary); }

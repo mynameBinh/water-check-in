@@ -1,243 +1,216 @@
-import { useState, useEffect, useCallback } from 'react';
-import waterLogo from '../assets/water.svg';
-import HeaderComponent from '../components/HeaderComponent';
-import MainActionButtonComponent from '../components/MainActionButtonComponent';
-import CameraPreviewComponent from '../components/CameraPreviewComponent';
-import FeedbackToastComponent from '../components/FeedbackToastComponent';
-import HistoryComponent from '../components/HistoryComponent';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import HeaderComponent      from '../components/HeaderComponent';
+import MainActionButton     from '../components/MainActionButtonComponent';
+import CameraPreview        from '../components/CameraPreviewComponent';
+import HistoryComponent     from '../components/HistoryComponent';
+import FeedbackToast        from '../components/FeedbackToastComponent';
+import VolumeModal          from '../components/VolumeModal';
 import './DashboardPage.css';
 
 const API_BASE = 'https://binhhn21-water-check-in-backend.hf.space';
-const CHECKIN_ML = 250;
 
-// 👇 HÀM CHUYỂN ĐỔI ẢNH (Trị dứt điểm lỗi String did not match trên điện thoại)
-const dataURItoBlob = (dataURI) => {
+function decodeJWT(token) {
+  try { return JSON.parse(atob(token.split('.')[1].replace(/-/g,'+').replace(/_/g,'/'))); }
+  catch { return null; }
+}
+
+function dataURItoBlob(dataURI) {
   const byteString = atob(dataURI.split(',')[1]);
-  const mimeString = dataURI.split(',')[0].split(':')[1].split(';')[0];
+  const mime = dataURI.split(',')[0].split(':')[1].split(';')[0];
   const ab = new ArrayBuffer(byteString.length);
   const ia = new Uint8Array(ab);
-  for (let i = 0; i < byteString.length; i++) {
-    ia[i] = byteString.charCodeAt(i);
-  }
-  return new Blob([ab], { type: mimeString });
-};
+  for (let i = 0; i < byteString.length; i++) ia[i] = byteString.charCodeAt(i);
+  return new Blob([ab], { type: mime });
+}
 
 export default function DashboardPage({ token, onLogout }) {
-  const [currentWater, setCurrentWater]     = useState(0);
+  // ── Core state ────────────────────────────────────────────────────────────
+  const [currentWater,   setCurrentWater]   = useState(0);
+  const [goalMl,         setGoalMl]         = useState(1800);
+  const [username,       setUsername]       = useState('');
+  const [streak,         setStreak]         = useState(0);
+  const [completedDates, setCompletedDates] = useState([]);
+  const [history,        setHistory]        = useState([]);
+  const [toast,          setToast]          = useState(null);
+
+  // ── Camera / AI state ─────────────────────────────────────────────────────
   const [isCameraActive, setIsCameraActive] = useState(false);
-  const [capturedImage, setCapturedImage]   = useState(null);
-  const [aiStatus, setAiStatus]             = useState('idle');
-  const [history, setHistory]               = useState([]);
-  const [toast, setToast]                   = useState(null);
+  const [capturedImage,  setCapturedImage]  = useState(null);
+  const [aiStatus,       setAiStatus]       = useState('idle'); // idle | loading | success | error
 
-  // username greeting
-  const [username, setUsername] = useState('sếp');
+  // ── Volume modal state ────────────────────────────────────────────────────
+  const [showVolumeModal, setShowVolumeModal] = useState(false);
+  const [selectedVolume,  setSelectedVolume]  = useState(250);
+  const [maxVolume,       setMaxVolume]       = useState(250);
+  const [containerType,   setContainerType]   = useState('unknown');
+  const pendingImageUrl = useRef(''); // lưu image_url từ /api/checkin để gửi khi confirm
 
-  // daily_goal linh hoạt cho từng người
-  const [goalMl, setGoalMl] = useState(1750);
+  // ── Show toast helper ─────────────────────────────────────────────────────
+  const showToast = useCallback((type, message) => {
+    setToast({ type, message, key: Date.now() });
+  }, []);
 
-  // Giải mã token để lấy username (ID) ngay khi vừa vào trang
+  // ── Load initial data ─────────────────────────────────────────────────────
   useEffect(() => {
-    if (token) {
-      try {
-        const payload = JSON.parse(atob(token.split('.')[1]));
-        setUsername(payload.sub); 
-      } catch (err) {
-        console.error("Lỗi đọc token:", err);
+    if (!token) return;
+    const payload = decodeJWT(token);
+    if (payload?.sub) setUsername(payload.sub);
+
+    const headers = { Authorization: `Bearer ${token}` };
+    Promise.all([
+      fetch(`${API_BASE}/api/me`,      { headers }),
+      fetch(`${API_BASE}/api/history`, { headers }),
+      fetch(`${API_BASE}/api/streak`,  { headers }),
+    ]).then(async ([meRes, histRes, stRes]) => {
+      if (meRes.ok) {
+        const me = await meRes.json();
+        setGoalMl(me.daily_goal ?? 1800);
       }
-    }
+      if (stRes.ok) {
+        const st = await stRes.json();
+        setStreak(st.streak ?? 0);
+        setCompletedDates(st.completed_dates ?? []);
+      }
+      if (histRes.ok) {
+        const hData = await histRes.json();
+        setHistory(hData.map(item => ({
+          id:     item.id,
+          time:   new Date(item.timestamp.endsWith('Z') ? item.timestamp : item.timestamp+'Z')
+                    .toLocaleTimeString('vi-VN', { hour:'2-digit', minute:'2-digit' }),
+          volume: item.volume_ml,
+        })));
+        setCurrentWater(hData.reduce((s, i) => s + i.volume_ml, 0));
+      }
+    }).catch(() => {});
   }, [token]);
 
-  /* Auto-dismiss toast after 3s */
-  useEffect(() => {
-    if (!toast) return;
-    const t = setTimeout(() => setToast(null), 3000);
-    return () => clearTimeout(t);
-  }, [toast]);
-
-  // ✅ ĐÃ TỐI ƯU: Sử dụng Promise.all để gọi song song 2 API giúp load trang nhanh gấp đôi và đồng bộ hoàn hảo
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [profileRes, historyRes] = await Promise.all([
-          fetch(`${API_BASE}/api/me`, {
-            headers: { 'Authorization': `Bearer ${token}` }
-          }),
-          fetch(`${API_BASE}/api/history`, {
-            headers: { 
-              'Authorization': `Bearer ${token}`,
-              'bypass-tunnel-reminder': 'true' 
-            },
-          })
-        ]);
-
-        // 1. XỬ LÝ DỮ LIỆU PROFILE (DAILY GOAL)
-        if (profileRes.ok) {
-          const profileData = await profileRes.json();
-          if (profileData && profileData.daily_goal) {
-            setGoalMl(profileData.daily_goal);
-          }
-        } else {
-          console.error("Không lấy được mục tiêu nước từ profile");
-        }
-
-        // 2. XỬ LÝ DỮ LIỆU LỊCH SỬ CHECK-IN
-        if (!historyRes.ok) {
-          if (historyRes.status === 401 || historyRes.status === 403) {
-            onLogout();
-            return;
-          }
-          throw new Error('Server không phản hồi lịch sử.');
-        }
-        
-        const historyData = await historyRes.json();
-        setHistory(historyData.map(item => {
-          const fixedTimestamp = item.timestamp.endsWith('Z') 
-            ? item.timestamp 
-            : `${item.timestamp}Z`;
-
-          return {
-            id: item.id,
-            time: new Date(fixedTimestamp).toLocaleTimeString('vi-VN', {
-              hour: '2-digit', minute: '2-digit', hour12: true,
-            }),
-            volume: item.volume_ml,
-            status: 'success', 
-          };
-        }));
-        
-        const totalWater = historyData.reduce((sum, item) => sum + item.volume_ml, 0);
-        setCurrentWater(totalWater);
-        
-      } catch (err) {
-        console.error("Lỗi khi tải dữ liệu ban đầu: ", err);
-        setToast({ type: 'error', message: 'Mất kết nối Server! Vui lòng đăng nhập lại...' });
-        setTimeout(() => {
-          onLogout();
-        }, 1500); 
-      }
-    };
-    
-    if (token) {
-      fetchData();
-    }
-  }, [token, onLogout]);
-
-  const handleOpenCamera = () => {
+  // ── Camera handlers ───────────────────────────────────────────────────────
+  const handleOpenCamera = useCallback(() => {
     setCapturedImage(null);
     setAiStatus('idle');
     setIsCameraActive(true);
-  };
+  }, []);
 
   const handleCapture = useCallback(async (imageDataUrl) => {
     setCapturedImage(imageDataUrl);
     setAiStatus('loading');
-
     try {
       const blob = dataURItoBlob(imageDataUrl);
-      
-      const formData = new FormData();
-      formData.append('image', blob, 'checkin.jpeg');
-
+      const form = new FormData();
+      form.append('image', blob, 'checkin.jpeg');
       const res = await fetch(`${API_BASE}/api/checkin`, {
         method: 'POST',
-        headers: { 
-          'Authorization': `Bearer ${token}`,
-          'bypass-tunnel-reminder': 'true'
-        },
-        body: formData,
+        headers: { Authorization: `Bearer ${token}` },
+        body: form,
       });
-
       if (!res.ok) {
-        if (res.status === 401 || res.status === 403) {
-          onLogout();
-          return;
-        }
-        const errData = await res.json();
-        throw new Error(errData.detail?.message || errData.detail || 'Check-in thất bại.');
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail?.message || err.detail || 'Check-in thất bại');
       }
-
       const data = await res.json();
-
-      // Cập nhật nước dùng biến goalMl (thêm mục tiêu)
-      setCurrentWater(prev => Math.min(prev + CHECKIN_ML, goalMl));
-      
-      setHistory(prev => [{
-        id: Date.now(),
-        time: new Date().toLocaleTimeString('vi-VN', {
-          hour: '2-digit', minute: '2-digit', hour12: true,
-        }),
-        volume: CHECKIN_ML,
-        status: 'success',
-      }, ...prev]);
-      
+      const vol = Math.max(data.max_volume || 250, 10);
+      pendingImageUrl.current = data.image_url || ''; // lưu để gửi kèm khi confirm
+      setMaxVolume(vol);
+      setSelectedVolume(vol);
+      setContainerType(data.container_type || 'unknown');
       setAiStatus('success');
-      setToast({ type: 'success', message: data.message || 'Check-in thành công!' });
-      
+      // Đóng camera, mở volume modal
       setTimeout(() => {
         setIsCameraActive(false);
         setCapturedImage(null);
         setAiStatus('idle');
-      }, 1500);
-
+        setShowVolumeModal(true);
+      }, 600);
     } catch (err) {
       setAiStatus('error');
-      console.error("Lỗi kết nối Check-in: ", err);
-      
-      if (err.message.includes('Failed to fetch') || err.message.includes('NetworkError')) {
-        setToast({ type: 'error', message: 'Máy chủ đang bảo trì! Đang văng ra...' });
-        setTimeout(() => {
-          onLogout();
-        }, 1500);
-      } else {
-        setToast({ type: 'error', message: err.message || 'Lỗi khi check-in.' });
-      }
+      showToast('error', err.message || 'Lỗi khi check-in');
     }
-  }, [token, onLogout, goalMl]); // Đưa goalMl vào dependency để React lấy đúng mục tiêu mới
+  }, [token, showToast]);
 
-  const handleRetry = () => {
-    setCapturedImage(null);
-    setAiStatus('idle');
-  };
+  const handleConfirmVolume = useCallback(async () => {
+    // Optimistic UI update ngay lập tức
+    const confirmedVol = selectedVolume;
+    setShowVolumeModal(false);
+    setCurrentWater(prev => prev + confirmedVol);
+    setHistory(prev => [{
+      id:     Date.now(),
+      time:   new Date().toLocaleTimeString('vi-VN', { hour:'2-digit', minute:'2-digit' }),
+      volume: confirmedVol,
+    }, ...prev]);
 
-  const handleCloseCamera = () => {
-    setIsCameraActive(false);
-    setCapturedImage(null);
-    setAiStatus('idle');
-  };
+    // Gửi volume thực lên backend — lưu DB với đúng số ml user đã chọn
+    try {
+      const res = await fetch(`${API_BASE}/api/checkin/confirm`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ volume_ml: confirmedVol, image_url: pendingImageUrl.current }),
+      });
+      if (!res.ok) {
+        const errText = await res.text().catch(() => '');
+        throw new Error(`HTTP ${res.status}: ${errText}`);
+      }
+      showToast('success', `Check-in thành công ${confirmedVol}ml nước! 💧`);
+    } catch (err) {
+      console.warn('[checkin/confirm] thất bại:', err.message);
+      // Lưu DB thất bại — rollback UI
+      setCurrentWater(prev => prev - confirmedVol);
+      setHistory(prev => prev.slice(1));
+      showToast('error', 'Không thể lưu check-in lên server, vui lòng thử lại.');
+    }
+  }, [selectedVolume, token, showToast]);
 
   return (
     <div className="dashboard">
+      {/* ── TOP BAR ── */}
       <header className="top-bar">
-        <img src={waterLogo} alt="Water logo" className="top-bar-logo" />
-        <span className="top-bar-title">Check-in uống nước</span>
-        <button onClick={onLogout} className="logout-button">Đăng xuất</button>
+        <span className="top-bar-logo">💧</span>
+        <span className="top-bar-title">Water Check-in</span>
+        <button className="logout-btn" onClick={() => {
+          if (window.confirm('Đăng xuất tài khoản này ư?')) onLogout();
+        }}>Đăng xuất</button>
       </header>
 
-      <div className="dashboard-inner">
-        <HeaderComponent currentWater={currentWater} goalMl={goalMl} username={username}/>
-
-        <main className="dashboard-main">
-          <MainActionButtonComponent
-            onOpen={handleOpenCamera}
-            isCameraActive={isCameraActive}
+      {/* ── CONTENT ── */}
+      <div className="dashboard-content">
+        <div className="home-tab">
+          <HeaderComponent
+            currentWater={currentWater}
+            goalMl={goalMl}
+            username={username}
+            streak={streak}
+            completedDates={completedDates}
           />
-
+          <MainActionButton
+            onOpen={handleOpenCamera}
+            disabled={aiStatus === 'loading'}
+          />
           {isCameraActive && (
-            <CameraPreviewComponent
+            <CameraPreview
               capturedImage={capturedImage}
               aiStatus={aiStatus}
               onCapture={handleCapture}
-              onRetry={handleRetry}
-              onClose={handleCloseCamera}
+              onRetry={() => { setCapturedImage(null); setAiStatus('idle'); }}
+              onClose={() => { setIsCameraActive(false); setCapturedImage(null); setAiStatus('idle'); }}
             />
           )}
-
           <HistoryComponent history={history} />
-        </main>
+        </div>
       </div>
 
-      {toast && <FeedbackToastComponent key={toast.message + Date.now()} toast={toast} />}
+      {/* ── VOLUME MODAL ── */}
+      {showVolumeModal && (
+        <VolumeModal
+          containerType={containerType}
+          selectedVolume={selectedVolume}
+          maxVolume={maxVolume}
+          onVolumeChange={setSelectedVolume}
+          onConfirm={handleConfirmVolume}
+          onClose={() => setShowVolumeModal(false)}
+        />
+      )}
+
+      {/* ── TOAST ── */}
+      {toast && <FeedbackToast key={toast.key} toast={toast} onClose={() => setToast(null)} />}
     </div>
   );
 }

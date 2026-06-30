@@ -10,9 +10,9 @@ const getLocalDateString = () => {
 export default function AdminDashboard({ token, onLogout }) {
   const todayStr = getLocalDateString();
   const [viewMode, setViewMode] = useState('date');
-
+  
   const [selectedDate, setSelectedDate] = useState(todayStr);
-  const [dateData, setDateData] = useState(null);
+  const [dateData, setDateData] = useState([]); // Sửa thành mảng [] tránh lỗi .map hoặc .reduce
 
   const [searchUserQuery, setSearchUserQuery] = useState('');
   const [userList, setUserList] = useState([]); 
@@ -21,9 +21,16 @@ export default function AdminDashboard({ token, onLogout }) {
 
   const [editingGoal, setEditingGoal] = useState('');
   const [isUpdatingGoal, setIsUpdatingGoal] = useState(false);
-
   const [editingTier, setEditingTier] = useState('');
   const [isUpdatingTier, setIsUpdatingTier] = useState(false);
+
+  // States Push Notification
+  const [pushMessage, setPushMessage] = useState('');
+  const [isSendingPush, setIsSendingPush] = useState(false);
+
+  const [gifts, setGifts] = useState([]);
+  const [newGiftStreak, setNewGiftStreak] = useState('');
+  const [newGiftText, setNewGiftText] = useState('');
 
   const [lastSyncedUser, setLastSyncedUser] = useState('');
   const [loading, setLoading] = useState(false);
@@ -33,307 +40,266 @@ export default function AdminDashboard({ token, onLogout }) {
 
   const fetchByDate = useCallback((dateStr, isBackground = false) => {
     if (!isBackground) { setLoading(true); setError(''); }
-    fetch(`${BACKEND_URL}/api/admin/checkins?date_str=${dateStr}`, {
-      headers: { 'Authorization': `Bearer ${token}` }
-    })
-      .then(res => res.json())
-      .then(data => { setDateData(data); if (!isBackground) setLoading(false); })
-      .catch(err => { 
-        if (!isBackground) setError("Lỗi khi tải dữ liệu ngày!"); 
+    fetch(`${BACKEND_URL}/api/admin/checkins?date_str=${dateStr}`, { headers: { 'Authorization': `Bearer ${token}` } })
+      .then(res => { if (!res.ok) throw new Error('Không thể tải dữ liệu'); return res.json(); })
+      .then(data => { 
+        // Backend có thể trả về { data: [...] } hoặc trực tiếp array
+        setDateData(data.data || data || []); 
         if (!isBackground) setLoading(false); 
-      });
+      })
+      .catch(err => { if (!isBackground) { setError(err.message); setLoading(false); } });
   }, [token]);
 
-  const fetchAllUsers = useCallback(() => {
-    fetch(`${BACKEND_URL}/api/admin/users`, {
-      headers: { 'Authorization': `Bearer ${token}` }
-    })
+  const fetchUserList = useCallback(() => {
+    fetch(`${BACKEND_URL}/api/admin/users`, { headers: { 'Authorization': `Bearer ${token}` } })
       .then(res => res.json())
-      .then(data => setUserList(data))
-      .catch(err => console.error("Lỗi tải danh sách User:", err));
+      .then(data => { if (Array.isArray(data)) setUserList(data.filter(u => u.role !== 'admin')); })
+      .catch(err => console.error(err));
   }, [token]);
 
-  const fetchUserRecord = useCallback((targetUsername, isBackground = false) => {
+  const fetchUserDetails = useCallback((username, isBackground = false) => {
     if (!isBackground) { setLoading(true); setError(''); }
-    fetch(`${BACKEND_URL}/api/admin/user-details?username=${targetUsername}`, {
-      headers: { 'Authorization': `Bearer ${token}` }
-    })
-      .then(res => {
-        if (!res.ok) throw new Error('Không tìm thấy User này!');
-        return res.json();
+    fetch(`${BACKEND_URL}/api/admin/user-details?username=${username}`, { headers: { 'Authorization': `Bearer ${token}` } })
+      .then(res => { if (!res.ok) throw new Error('Không thể tải dữ liệu user'); return res.json(); })
+      .then(data => {
+        setUserData(data); 
+        setEditingGoal(data.daily_goal ? data.daily_goal.toString() : '2000'); 
+        setEditingTier(data.tier || 'Thành viên');
+        setLastSyncedUser(new Date().toLocaleTimeString('vi-VN'));
+        if (!isBackground) setLoading(false);
       })
-      .then(data => { setUserData(data); if (!isBackground) setLoading(false); })
-      .catch(err => { 
-        if (!isBackground) setError(err.message); 
-        if (!isBackground) setLoading(false); 
-      });
+      .catch(err => { if (!isBackground) { setError(err.message); setLoading(false); } });
+  }, [token]);
+
+  const fetchGifts = useCallback(() => {
+    fetch(`${BACKEND_URL}/api/gifts`, { headers: { 'Authorization': `Bearer ${token}` } })
+      .then(res => res.json())
+      .then(data => { if(Array.isArray(data)) setGifts(data); })
+      .catch(e => console.error(e));
   }, [token]);
 
   useEffect(() => {
-    if (userData && userData.username !== lastSyncedUser) {
-      const currentGoal = userData.daily_goal !== undefined ? userData.daily_goal : 1000;
-      setEditingGoal(currentGoal);
-      setEditingTier(userData.tier || 'Thành viên'); 
-      setLastSyncedUser(userData.username);
-    }
-  }, [userData, lastSyncedUser]);
+    if (viewMode === 'date') fetchByDate(selectedDate);
+    else if (viewMode === 'user') { fetchUserList(); if (selectedUser) fetchUserDetails(selectedUser); }
+    else if (viewMode === 'gifts') fetchGifts();
+  }, [viewMode, selectedDate, selectedUser, fetchByDate, fetchUserList, fetchUserDetails, fetchGifts]);
 
-  const handleUpdateGoal = () => {
-    if (!userData) return;
+  const handleUpdateGoal = async () => {
+    if (!selectedUser || !editingGoal) return;
     setIsUpdatingGoal(true);
-    fetch(`${BACKEND_URL}/api/admin/users/${userData.username}/goal`, {
-      method: 'PUT',
-      headers: { 
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ daily_goal: parseInt(editingGoal, 10) || 1000 })
-    })
-      .then(res => {
-        if (!res.ok) throw new Error('Không thể cập nhật mục tiêu uống nước!');
-        return res.json();
-      })
-      .then(() => {
-        setUserData(prev => ({ ...prev, daily_goal: parseInt(editingGoal, 10) }));
-        setIsUpdatingGoal(false);
-        alert(`✅ Đã đổi mục tiêu của @${userData.username} thành ${editingGoal}ml thành công!`);
-      })
-      .catch(err => {
-        alert(`❌ Thất bại: ${err.message}`);
-        setIsUpdatingGoal(false);
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/admin/users/${selectedUser}/goal`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ daily_goal: parseInt(editingGoal) })
       });
+      if (res.ok) { alert(`Đã cập nhật mục tiêu của ${selectedUser} thành ${editingGoal}ml`); fetchUserDetails(selectedUser, true); }
+    } catch (err) { alert('Lỗi: ' + err.message); }
+    setIsUpdatingGoal(false);
   };
 
-  const handleUpdateTier = () => {
-    if (!userData) return;
+  const handleUpdateTier = async () => {
+    if (!selectedUser || !editingTier) return;
     setIsUpdatingTier(true);
-    fetch(`${BACKEND_URL}/api/admin/users/${userData.username}/tier`, {
-      method: 'PUT',
-      headers: { 
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ tier: editingTier })
-    })
-      .then(res => {
-        if (!res.ok) throw new Error('Không thể cập nhật danh hiệu!');
-        return res.json();
-      })
-      .then(() => {
-        setUserData(prev => ({ ...prev, tier: editingTier }));
-        setIsUpdatingTier(false);
-        alert(`✅ Đã phong tước hiệu "${editingTier}" cho @${userData.username} thành công!`);
-      })
-      .catch(err => {
-        alert(`❌ Thất bại: ${err.message}`);
-        setIsUpdatingTier(false);
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/admin/users/${selectedUser}/tier`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ tier: editingTier })
       });
+      if (res.ok) { alert(`Đã cập nhật danh hiệu của ${selectedUser} thành "${editingTier}"`); fetchUserDetails(selectedUser, true); }
+    } catch (err) { alert('Lỗi: ' + err.message); }
+    setIsUpdatingTier(false);
   };
 
-  useEffect(() => {
-    fetchByDate(selectedDate, false); 
-    const intervalDate = setInterval(() => { fetchByDate(selectedDate, true); }, 10000);
-    return () => clearInterval(intervalDate);
-  }, [selectedDate, fetchByDate]);
+  // Tính năng Push Notification mới
+  const handleSendPushNotification = async () => {
+    if (!selectedUser || !pushMessage.trim()) return alert("Sếp vui lòng nhập nội dung thông báo nhé!");
+    setIsSendingPush(true);
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/admin/push-notification/${selectedUser}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ message: pushMessage.trim() })
+      });
+      if (res.ok) {
+        alert(`🚀 Đã bắn thông báo thành công đến máy của ${selectedUser}!`);
+        setPushMessage('');
+      } else {
+        alert("Lỗi! Không thể gửi thông báo.");
+      }
+    } catch (err) { alert('Lỗi: ' + err.message); }
+    setIsSendingPush(false);
+  };
 
-  useEffect(() => {
-    if (!selectedUser) return;
-    const intervalUser = setInterval(() => { fetchUserRecord(selectedUser, true); }, 10000);
-    return () => clearInterval(intervalUser);
-  }, [selectedUser, fetchUserRecord]);
+  const handleAddGift = async () => {
+    if (!newGiftStreak || !newGiftText) return alert("Vui lòng nhập đủ thông tin!");
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/admin/gifts`, {
+        method: 'POST', headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ streak_required: parseInt(newGiftStreak), gift_text: newGiftText })
+      });
+      if (res.ok) { setNewGiftStreak(''); setNewGiftText(''); fetchGifts(); }
+    } catch(e) { alert("Lỗi khi thêm quà!"); }
+  };
 
-  useEffect(() => {
-    if (viewMode === 'user' && userList.length === 0) fetchAllUsers();
-  }, [viewMode, userList.length, fetchAllUsers]);
-
-  const handleTabChange = (mode) => {
-    setViewMode(mode);
-    setError(''); 
-    if (mode === 'user') {
-      setSelectedUser(null);
-      setUserData(null);
-      setSearchUserQuery('');
-      setLastSyncedUser('');
+  const handleDeleteGift = async (id) => {
+    if(window.confirm("Sếp chắc chắn muốn xóa mốc quà này?")) {
+      await fetch(`${BACKEND_URL}/api/admin/gifts/${id}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${token}` } });
+      fetchGifts();
     }
   };
 
-  const totalWaterInDay = dateData?.data?.reduce((sum, item) => sum + item.volume_ml, 0) || 0;
-  const userLogsOnDate = dateData?.data?.filter(item => item.username === selectedUser) || [];
-  const userWaterOnDate = userLogsOnDate.reduce((sum, item) => sum + item.volume_ml, 0);
+  // An toàn khi truy cập mảng dữ liệu, tránh undefined gây crash màn hình trắng
+  const safeDateData = Array.isArray(dateData) ? dateData : [];
+  const totalVolumeOnDate = safeDateData.reduce((sum, item) => sum + (item.volume_ml || item.total_ml || 0), 0);
+  const totalCheckinsOnDate = safeDateData.length;
+
+  const filteredUsers = userList.filter(u => u.username && u.username.toLowerCase().includes(searchUserQuery.toLowerCase()));
 
   return (
-    <div className="dashboard">
-      <header className="top-bar">
-        <img src={waterLogo} alt="Water logo" className="top-bar-logo" />
-        <span className="top-bar-title">Quản trị Hệ thống</span>
-        <button onClick={onLogout} className="logout-button">Đăng xuất</button>
-      </header>
+    <div className="admin-container">
+      <div className="admin-wrapper">
+        <header className="admin-header">
+          <div className="admin-header-left">
+            <img src={waterLogo} alt="Logo" className="admin-logo" />
+            <div>
+              <h1 className="admin-title">Admin Dashboard</h1>
+              <p className="admin-subtitle">Hệ thống giám sát & Tương tác AI</p>
+            </div>
+          </div>
+          <button className="admin-logout-btn" onClick={onLogout}>Đăng xuất</button>
+        </header>
 
-      <div className="dashboard-inner admin-inner">
-        <div className="admin-tabs">
-          <button className={`admin-tab-btn ${viewMode === 'date' ? 'active' : ''}`} onClick={() => handleTabChange('date')}>🗓️ Theo ngày</button>
-          <button className={`admin-tab-btn ${viewMode === 'user' ? 'active' : ''}`} onClick={() => handleTabChange('user')}>👤 User</button>
-        </div>
+        <main className="admin-inner">
+          <div className="admin-tabs">
+            <button className={`admin-tab-btn ${viewMode === 'date' ? 'active' : ''}`} onClick={() => setViewMode('date')}>📅 Xem theo ngày</button>
+            <button className={`admin-tab-btn ${viewMode === 'user' ? 'active' : ''}`} onClick={() => setViewMode('user')}>👥 Thông tin cá nhân</button>
+            <button className={`admin-tab-btn ${viewMode === 'gifts' ? 'active' : ''}`} onClick={() => setViewMode('gifts')}>🎁 Quản lý Quà</button>
+          </div>
 
-        <main className="dashboard-main">
-          {viewMode === 'date' && (
-            <div className="admin-section">
-              <div className="admin-filter-bar">
-                <span className="admin-filter-label">Chọn ngày:</span>
-                <input type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} className="admin-date-input"/>
+          {loading && <div className="admin-loading">Đang tải dữ liệu...</div>}
+          {error && <div className="admin-error">{error}</div>}
+
+          {!loading && !error && viewMode === 'date' && (
+            <div className="admin-section fade-in">
+              <div className="admin-control-bar">
+                <input type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} className="admin-date-picker" />
               </div>
-
-              <div className="admin-stats-grid">
-                <div className="admin-stat-card">
-                  <p className="admin-stat-label">LƯỢT CHECK-IN</p>
-                  <p className="admin-stat-value text-blue">{dateData?.total_checkins || 0}</p>
+              
+              <div className="admin-date-summary">
+                <h3>Thống kê ngày {selectedDate}</h3>
+                <div className="admin-stats-row">
+                  <div className="admin-stat-box"><span className="stat-label">Tổng lượt Check-in</span><span className="stat-value">{totalCheckinsOnDate}</span></div>
+                  <div className="admin-stat-box highlight"><span className="stat-label">Tổng lượng nước (ML)</span><span className="stat-value">{totalVolumeOnDate}</span></div>
                 </div>
-                <div className="admin-stat-card">
-                  <p className="admin-stat-label">TỔNG NƯỚC UỐNG</p>
-                  <p className="admin-stat-value text-green">{totalWaterInDay} ml</p>
-                </div>
-              </div>
-
-              {loading && <div className="admin-status-text">🔄 Đang tải dữ liệu...</div>}
-              {error && <div className="admin-status-text error">❌ {error}</div>}
-
-              {!loading && !error && dateData && (
-                <div className="admin-log-container">
-                  <h2 className="admin-section-title">Nhật ký hệ thống ngày {selectedDate}</h2>
-                  {dateData.data.length === 0 ? (
-                    <div className="admin-empty-state">Không có ai check-in vào ngày này.</div>
-                  ) : (
-                    <div className="admin-grid-cards">
-                      {dateData.data.map((item) => (
-                        <div key={item.checkin_id} className="admin-card">
-                          <div className="admin-card-header">
-                            <span className="admin-user-name">@{item.username}</span>
-                            <span className="admin-volume-tag">+{item.volume_ml}ml</span>
-                          </div>
-                          <div className="admin-card-time">🕒 {item.time}</div>
-                          <div className="admin-image-box">
-                            {item.image_link_click_here !== "Không có ảnh" ? (
-                              <a href={`${BACKEND_URL}${item.image_link_click_here}`} target="_blank" rel="noreferrer">
-                                <img src={`${BACKEND_URL}${item.image_link_click_here}`} alt="Check-in" loading="lazy" />
-                              </a>
-                            ) : (<div className="admin-no-img">🚫 Không có ảnh</div>)}
-                          </div>
+                <h4 style={{ color: 'var(--c-text-p)', marginBottom: '12px' }}>Chi tiết Check-in:</h4>
+                
+                {safeDateData.length === 0 ? <div className="admin-empty">Không có dữ liệu uống nước nào trong ngày này.</div> : (
+                  <div className="admin-grid-cards">
+                    {safeDateData.map((item, index) => (
+                      <div key={item.checkin_id || index} className="admin-card">
+                        <div className="admin-card-header"><span className="admin-card-user">👤 {item.username}</span><span className="admin-volume-tag">+{item.volume_ml || item.total_ml}ml</span></div>
+                        <div className="admin-card-time">🕒 Lúc: {item.time || item.last_checkin_time}</div>
+                        <div className="admin-image-box">
+                          {item.image_link_click_here && item.image_link_click_here !== "Không có ảnh" ? <a href={`${BACKEND_URL}${item.image_link_click_here}`} target="_blank" rel="noreferrer"><img src={`${BACKEND_URL}${item.image_link_click_here}`} alt="Check-in" loading="lazy" /></a> : <div className="admin-no-img">🚫 Không ảnh</div>}
                         </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
-          {viewMode === 'user' && (
-            <div className="admin-section">
-              {!selectedUser && (
-                <>
-                  <div className="admin-filter-bar">
-                    <span className="admin-filter-label">🔍</span>
-                    <input 
-                      type="text" placeholder="Tìm kiếm User..." 
-                      value={searchUserQuery} onChange={(e) => setSearchUserQuery(e.target.value)}
-                      className="admin-search-input"
-                    />
+          {!loading && !error && viewMode === 'gifts' && (
+            <div className="admin-section fade-in">
+              <h3 style={{color: '#f43f5e', marginBottom: 16}}>🎀 Quản lý mốc quà tặng</h3>
+              <div className="gift-add-form" style={{display: 'flex', gap: 10, marginBottom: 20}}>
+                <input type="number" placeholder="Mốc Streak..." value={newGiftStreak} onChange={e=>setNewGiftStreak(e.target.value)} className="admin-search-input" style={{flex: 1}} />
+                <input type="text" placeholder="Lời nhắn phần quà..." value={newGiftText} onChange={e=>setNewGiftText(e.target.value)} className="admin-search-input" style={{flex: 2}} />
+                <button onClick={handleAddGift} className="updateBtn">Thêm Quà</button>
+              </div>
+              <div style={{display: 'flex', flexDirection: 'column', gap: 12}}>
+                {gifts.map(g => (
+                  <div key={g.id} className="admin-card" style={{display: 'flex', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center'}}>
+                    <div><span style={{color: '#f472b6', fontWeight: 'bold', marginRight: 10, fontSize: 16}}>🔥 Streak {g.streak_required}:</span><span style={{color: 'var(--c-text-h)'}}>{g.gift_text}</span></div>
+                    <button onClick={() => handleDeleteGift(g.id)} style={{background: '#ef4444', color: 'white', border: 'none', padding: '8px 16px', borderRadius: 8, cursor: 'pointer', fontWeight: 'bold'}}>Xóa</button>
                   </div>
+                ))}
+              </div>
+            </div>
+          )}
 
-                  {userList.length === 0 ? (
-                    <div className="admin-status-text">🔄 Đang tải danh sách...</div>
-                  ) : (
-                    <div className="admin-user-list-grid">
-                      {userList
-                        .filter(u => u.username.toLowerCase().includes(searchUserQuery.toLowerCase()))
-                        .map(u => (
-                          <div 
-                            key={u.username} className="admin-user-select-card"
-                            onClick={() => { setSelectedUser(u.username); fetchUserRecord(u.username); }}
-                          >
-                            <div className="user-icon">{u.role === 'admin' ? '👑' : '👤'}</div>
-                            <div className="user-name">@{u.username}</div>
-                          </div>
-                        ))}
-                    </div>
-                  )}
-                </>
-              )}
-
-              {selectedUser && (
+          {!loading && !error && viewMode === 'user' && (
+            <div className="admin-section fade-in">
+              {!selectedUser ? (
                 <>
-                  <button className="admin-back-btn" onClick={() => {
-                    setSelectedUser(null); setUserData(null); setError(''); setLastSyncedUser('');
-                  }}>
-                    ⬅ Quay lại danh sách User
-                  </button>
-
-                  {error && <div className="admin-status-text error">❌ {error}</div>}
-                  {!userData && !error && <div className="admin-status-text">🔄 Đang tải dữ liệu của @{selectedUser}...</div>}
-
+                  <input type="text" placeholder="🔍 Tìm kiếm user..." value={searchUserQuery} onChange={(e) => setSearchUserQuery(e.target.value)} className="admin-search-input" />
+                  <div className="admin-user-grid">
+                    {filteredUsers.length === 0 ? <div className="admin-empty">Không tìm thấy user nào</div> : filteredUsers.map(u => (
+                        <div key={u.username} className="admin-user-select-card" onClick={() => setSelectedUser(u.username)}><div className="user-icon">👤</div><div className="user-name">{u.username}</div></div>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <>
+                  <button className="admin-back-btn" onClick={() => { setSelectedUser(null); setUserData(null); }} style={{marginBottom: 20}}>⬅ Quay lại danh sách</button>
                   {userData && (
                     <>
-                      <div className="admin-profile-card">
-                        <h2 className="admin-profile-name">@{userData.username}</h2>
-                        <div className="admin-profile-stats">
-                          <div className="admin-p-stat"><span>🔥 Streak:</span> <strong>{userData.streak} ngày</strong></div>
-                          <div className="admin-p-stat"><span>💧 Tổng nước (All):</span> <strong>{userData.total_volume} ml</strong></div>
+                      <div className="admin-user-profile-card">
+                        <div className="profile-header">
+                          <div className="profile-avatar">👤</div>
+                          <div><h2 className="profile-name">{userData.username}</h2><p className="profile-tier" style={{color: '#f472b6'}}>{userData.tier || 'Thành viên'}</p></div>
+                        </div>
+                        <div className="profile-stats">
+                          <div className="p-stat"><span className="p-val">{userData.streak || 0}</span><span className="p-lbl">Streak 🔥</span></div>
+                          <div className="p-stat"><span className="p-val">{userData.total_checkins || 0}</span><span className="p-lbl">Lần uống 💧</span></div>
+                          <div className="p-stat"><span className="p-val">{userData.total_volume || 0}</span><span className="p-lbl">Tổng ml 🌊</span></div>
                         </div>
 
-                        {/* Tùy chỉnh KPI */}
-                        <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-                          <span style={{ fontSize: '14px', color: '#94a3b8', fontWeight: '600' }}>🎯 KPI Nước:</span>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <input type="number" value={editingGoal} onChange={(e) => setEditingGoal(e.target.value)} className='updateInput' />
-                            <span style={{ fontSize: '14px', color: '#fff' }}>ml</span>
+                        <div className="profile-update-section" style={{marginTop: 20, paddingTop: 20, borderTop: '1px solid var(--c-border)'}}>
+                          <div style={{display: 'flex', gap: 10, marginBottom: 12}}>
+                            <div style={{flex: 1}}>
+                              <label style={{fontSize: 12, color: 'var(--c-text-p)', marginBottom: 4, display: 'block'}}>🎯 Danh hiệu:</label>
+                              <div style={{display: 'flex', gap: 6}}>
+                                <input type="text" value={editingTier} onChange={(e) => setEditingTier(e.target.value)} className="admin-search-input" style={{margin: 0, padding: '8px 12px'}} />
+                                <button className="updateBtn" onClick={handleUpdateTier} disabled={isUpdatingTier}>{isUpdatingTier ? '...' : 'Đổi'}</button>
+                              </div>
+                            </div>
+                            <div style={{flex: 1}}>
+                              <label style={{fontSize: 12, color: 'var(--c-text-p)', marginBottom: 4, display: 'block'}}>🎯 KPI Nước (ml):</label>
+                              <div style={{display: 'flex', gap: 6}}>
+                                <input type="number" value={editingGoal} onChange={(e) => setEditingGoal(e.target.value)} className="admin-search-input" style={{margin: 0, padding: '8px 12px'}} />
+                                <button className="updateBtn" onClick={handleUpdateGoal} disabled={isUpdatingGoal}>{isUpdatingGoal ? '...' : 'Đổi'}</button>
+                              </div>
+                            </div>
                           </div>
-                          <button type="button" onClick={handleUpdateGoal} disabled={isUpdatingGoal} className='updateBtn'>
-                            {isUpdatingGoal ? 'Đang lưu...' : 'Cập nhật'}
-                          </button>
                         </div>
 
-                        {/* Tùy chỉnh Tier */}
-                        <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-                          <span style={{ fontSize: '14px', color: '#94a3b8', fontWeight: '600' }}>👑 Danh hiệu:</span>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flex: 1 }}>
-                            <input 
-                              type="text" value={editingTier} onChange={(e) => setEditingTier(e.target.value)}
-                              className='updateInput' style={{ width: '100%', minWidth: '150px' }} placeholder="Vd: Thành viên VIP..."
-                            />
-                          </div>
-                          <button type="button" onClick={handleUpdateTier} disabled={isUpdatingTier} className='updateBtn'>
-                            {isUpdatingTier ? 'Đang lưu...' : 'Cập nhật'}
+                        {/* FORM ĐẨY THÔNG BÁO CHO USER */}
+                        <div className="admin-push-panel" style={{marginTop: 20, paddingTop: 20, borderTop: '1px solid var(--c-border)', textAlign: 'left'}}>
+                          <label style={{fontSize: 13, fontWeight: '700', color: 'var(--c-text-h)', marginBottom: 6, display: 'block'}}>📣 Gửi thông báo nhắc nhở trực tiếp:</label>
+                          <textarea 
+                            rows="2"
+                            placeholder="Nhập lời nhắc nhở khích lệ uống nước (VD: Bé ơi ngoan ngoãn uống nước nào!)..."
+                            value={pushMessage}
+                            onChange={(e) => setPushMessage(e.target.value)}
+                            className="admin-push-textarea"
+                          />
+                          <button className="admin-push-btn-submit" onClick={handleSendPushNotification} disabled={isSendingPush}>
+                            {isSendingPush ? 'Đang gửi...' : '🚀 Bắn thông báo ngay'}
                           </button>
                         </div>
                       </div>
 
-                      <div className="admin-filter-bar" style={{ marginTop: '16px' }}>
-                        <span className="admin-filter-label">Theo dõi ảnh ngày:</span>
-                        <input type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} className="admin-date-input" />
-                      </div>
-
-                      <div className="admin-log-container">
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                          <h2 className="admin-section-title" style={{ margin: 0 }}>Nhật ký ngày {selectedDate}</h2>
-                          <span className="text-green" style={{ fontWeight: 'bold' }}>Đã uống: {userWaterOnDate}ml</span>
-                        </div>
-
-                        {userLogsOnDate.length === 0 ? (
-                          <div className="admin-empty-state">User này chưa uống nước hôm nay.</div>
-                        ) : (
+                      <div className="admin-date-summary">
+                        <h4 style={{ color: 'var(--c-text-p)', marginBottom: '12px' }}>Chi tiết Check-in (Hôm nay):</h4>
+                        {(!userData.logs_today || userData.logs_today.length === 0) ? <div className="admin-empty">User này chưa uống nước hôm nay.</div> : (
                           <div className="admin-grid-cards">
-                            {userLogsOnDate.map((item) => (
-                              <div key={item.checkin_id} className="admin-card">
-                                <div className="admin-card-header">
-                                  <span className="admin-card-time" style={{margin:0}}>🕒 {item.time}</span>
-                                  <span className="admin-volume-tag">+{item.volume_ml}ml</span>
-                                </div>
+                            {userData.logs_today.map((item, index) => (
+                              <div key={item.checkin_id || index} className="admin-card">
+                                <div className="admin-card-header"><span className="admin-card-time" style={{margin:0}}>🕒 {item.time}</span><span className="admin-volume-tag">+{item.volume_ml}ml</span></div>
                                 <div className="admin-image-box" style={{ marginTop: '10px' }}>
-                                  {item.image_link_click_here !== "Không có ảnh" ? (
-                                    <a href={`${BACKEND_URL}${item.image_link_click_here}`} target="_blank" rel="noreferrer">
-                                      <img src={`${BACKEND_URL}${item.image_link_click_here}`} alt="Check-in" loading="lazy" />
-                                    </a>
-                                  ) : (<div className="admin-no-img">🚫 Không ảnh</div>)}
+                                  {item.image_link_click_here && item.image_link_click_here !== "Không có ảnh" ? <a href={`${BACKEND_URL}${item.image_link_click_here}`} target="_blank" rel="noreferrer"><img src={`${BACKEND_URL}${item.image_link_click_here}`} alt="Check-in" loading="lazy" /></a> : <div className="admin-no-img">🚫 Không ảnh</div>}
                                 </div>
                               </div>
                             ))}

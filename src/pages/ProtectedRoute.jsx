@@ -11,8 +11,14 @@ export default function ProtectedRoute({ children }) {
 
   try {
     // Bóc tách token xem role là gì
-    const payload = JSON.parse(atob(token.split('.')[1]));
-    
+    const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g,'+').replace(/_/g,'/')));
+
+    // Token đã hết hạn -> dọn token cũ và đá về login
+    if (payload.exp && Date.now() >= payload.exp * 1000) {
+      localStorage.removeItem('token');
+      return <Navigate to="/login" replace />;
+    }
+
     // Nếu không phải admin -> Đá về trang chủ user hoặc báo lỗi
     if (payload.role !== 'admin') {
       return <div style={{ color: 'red', padding: '20px', textAlign: 'center' }}>

@@ -1,0 +1,149 @@
+.vol-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15,23,42,0.65);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  z-index: 300;
+  animation: fade-in .15s ease;
+}
+@keyframes fade-in { from { opacity:0 } to { opacity:1 } }
+
+.vol-card {
+  background: #fff;
+  border-radius: 32px;
+  padding: 28px 24px 24px;
+  width: 100%;
+  max-width: 340px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.15);
+  animation: slide-up .2s ease;
+}
+@keyframes slide-up { from { transform: translateY(20px); opacity:0 } to { transform:none; opacity:1 } }
+
+.vol-title { font-size: 17px; font-weight: 800; color: var(--c-text-h); text-align: center; }
+
+.vol-amount { text-align: center; }
+.vol-amount-big { font-size: 38px; font-weight: 900; color: var(--c-primary); letter-spacing: -1px; }
+.vol-amount-max { font-size: 18px; font-weight: 600; color: var(--c-text-muted); }
+
+/* ── Visualization ──────────────────────────────────────────── */
+.vol-vis {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 0;
+}
+
+.vol-container-wrap {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  min-height: 210px;
+}
+
+/* Top parts */
+.vol-top { display: flex; flex-direction: column; align-items: center; }
+.thermos-cap  { width: 54px; height: 18px; background: #334155; border-radius: 6px 6px 0 0; }
+.thermos-neck { width: 66px; height:  8px; background: #475569; }
+.bottle-cap   { width: 22px; height: 12px; background: #3b82f6; border-radius: 4px 4px 0 0; }
+.bottle-neck  { width: 24px; height: 12px; background: #cbd5e1; }
+.mug-handle {
+  position: absolute; right: -22px; top: 20px;
+  width: 38px; height: 60px;
+  border: 5px solid var(--c-primary);
+  border-left: none;
+  border-radius: 0 20px 20px 0;
+  z-index: 1;
+}
+
+/* Body */
+.vol-body {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  z-index: 2;
+}
+.vol-body--glass   { width: 80px;  border: 4px solid var(--c-primary); border-top: none; border-radius: 0 0 12px 12px; }
+.vol-body--mug     { width: 100px; border: 5px solid var(--c-primary); border-top: none; border-radius: 0 0 22px 22px; }
+.vol-body--thermos { width: 82px;  border: 5px solid #475569; border-radius: 12px; }
+.vol-body--bottle  { width: 62px;  border: 4px solid #94a3b8; border-radius: 20px 20px 10px 10px; }
+.vol-body--unknown { width: 80px;  border: 4px solid var(--c-primary); border-top: none; border-radius: 0 0 12px 12px; }
+
+.vol-water {
+  position: absolute;
+  bottom: 0;
+  width: 100%;
+  background: var(--c-primary);
+  opacity: 0.85;
+  transition: height .3s ease;
+}
+.vol-water-icon {
+  position: absolute;
+  bottom: 10px;
+  font-size: 24px;
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+/* Drag handle */
+.vol-dragger {
+  position: absolute;
+  left: -18px;
+  display: flex;
+  align-items: center;
+  width: 120px;
+  height: 36px;
+  cursor: ns-resize;
+  touch-action: none;
+  z-index: 10;
+  transition: bottom .05s;
+}
+.vol-knob {
+  width: 30px; height: 30px; border-radius: 50%;
+  background: #fff;
+  border: 3px solid var(--c-primary);
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 3px 10px rgba(14,165,233,0.3);
+  margin-right: -6px;
+  flex-shrink: 0;
+}
+.vol-knob-inner { width: 10px; height: 10px; border-radius: 50%; background: var(--c-primary-dim); }
+.vol-line { flex: 1; height: 3px; background: rgba(255,255,255,0.8); border-radius: 2px; }
+
+.vol-hint { font-size: 12px; color: var(--c-text-muted); font-weight: 500; }
+
+/* Buttons */
+.vol-confirm-btn {
+  width: 100%;
+  padding: 14px;
+  border: none;
+  border-radius: 16px;
+  background: var(--c-primary);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: var(--shadow-btn);
+  transition: opacity .15s;
+}
+.vol-confirm-btn:hover { opacity: .9; }
+
+.vol-cancel-btn {
+  background: none;
+  border: none;
+  color: var(--c-text-muted);
+  font-size: 14px;
+  cursor: pointer;
+  padding: 4px;
+}

@@ -76,9 +76,10 @@ export default function HeaderComponent({ currentWater, goalMl }) {
   const fireConfetti = () => {
     if (window.confetti) {
       window.confetti({ particleCount: 180, spread: 100, origin: { y: 0.6 } });
-    } else {
-      // Nếu chưa load kịp thư viện thì tự động nạp ngầm rồi bắn luôn
+    } else if (!document.getElementById('confetti-cdn-script')) {
+      // Nếu chưa load kịp thư viện thì tự động nạp ngầm rồi bắn luôn (chỉ nạp 1 lần)
       const script = document.createElement('script');
+      script.id = 'confetti-cdn-script';
       script.src = 'https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js';
       script.onload = () => window.confetti({ particleCount: 180, spread: 100, origin: { y: 0.6 } });
       document.head.appendChild(script);
@@ -89,8 +90,8 @@ export default function HeaderComponent({ currentWater, goalMl }) {
     try {
       const token = localStorage.getItem('token'); 
       if (token) {
-        // 1. Lấy tên User
-        const payload = JSON.parse(atob(token.split('.')[1]));
+        // 1. Lấy tên User (decode an toàn với base64url)
+        const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g,'+').replace(/_/g,'/')));
         if (payload && payload.sub) {
           setUserName(payload.sub);
         }
@@ -183,7 +184,7 @@ export default function HeaderComponent({ currentWater, goalMl }) {
         )}
       </div>
 
-      <CircularProgress window={window} percentage={percentage} currentWater={currentWater} goalMl={goalMl} />
+      <CircularProgress percentage={percentage} currentWater={currentWater} goalMl={goalMl} />
 
       {currentWater >= goalMl && (
         <p className="goal-reached">🎉 Đạt mục tiêu hôm nay!</p>

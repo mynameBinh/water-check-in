@@ -47,9 +47,6 @@ export default function HistoryComponent({ history }) {
               </div>
               <div className="history-item-right">
                 <span className="history-item-vol">+{item.volume}ml</span>
-                <span className={`history-item-badge history-item-badge--${item.status}`}>
-                  {item.status === 'success' ? '✓' : '✗'}
-                </span>
               </div>
             </li>
           ))}

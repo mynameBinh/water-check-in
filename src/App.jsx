@@ -10,20 +10,17 @@ export default function App() {
   const [currentPath, setCurrentPath] = useState(window.location.pathname);
 
   useEffect(() => {
-    const handleStorageChange = () => {
-      setToken(localStorage.getItem('token'));
-    };
-
     // Theo dõi nếu sếp bấm nút Back/Forward trên trình duyệt
     const handleLocationChange = () => {
       setCurrentPath(window.location.pathname);
     };
 
-    window.addEventListener('storage', handleStorageChange);
+    // LƯU Ý: Không dùng 'storage' event vì nó có thể fire trong cùng tab
+    // trên mobile (đặc biệt khi browser permission dialog xuất hiện),
+    // làm token bị set về null và logout nhầm.
     window.addEventListener('popstate', handleLocationChange);
     
     return () => {
-      window.removeEventListener('storage', handleStorageChange);
       window.removeEventListener('popstate', handleLocationChange);
     };
   }, []);
